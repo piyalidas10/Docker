@@ -86,7 +86,8 @@ Docker Container
    ↓
 Run application
 ```
-For example:
+
+**For example:**
 ```
 FROM node:20
 

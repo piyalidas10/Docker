@@ -1,0 +1,11 @@
+{
+  "name": "utility-container",
+  "version": "1.0.0",
+  "description": "Utility Container using Docker COmpose",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
