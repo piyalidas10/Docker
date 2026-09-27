@@ -52,7 +52,62 @@ docker rmi <image>:<tag>
 docker container prune
 ```
 
+<img src="./imgs/docker_images_containers.png" width="90%" />
+
 ---
+
+## docker pull <image>:<tag>
+Breakdown:
+```
+docker    → Docker CLI
+pull      → download an image
+node      → image/repository name
+22        → tag/version
+```
+Docker will look in Docker Hub by default:
+```
+Docker Hub
+    │
+    │ docker pull node:22
+    ▼
+┌──────────────┐
+│ node:22      │
+│ Docker image │
+└──────────────┘
+    │
+    ▼
+Your local Docker image store
+```
+
+**You can verify it:**
+```
+docker image ls
+```
+You should see something similar to:
+```
+REPOSITORY   TAG   IMAGE ID
+node         22    abc123...
+```
+
+**What is the tag?**
+
+The tag identifies a particular image variant/version.
+```
+docker pull node:22
+docker pull node:20
+docker pull node:lts
+docker pull node:22-alpine
+```
+These can represent different images.
+
+If you write:
+```
+docker pull node
+```
+Docker uses the default tag:
+```
+node:latest
+```
 
 ## Image Lifecycle
 
