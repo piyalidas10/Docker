@@ -1,0 +1,12 @@
+{
+  "name": "04-bind-mounts",
+  "version": "1.0.0",
+  "description": "**Bind mounts** map a file or directory on the **host machine** directly into a container. Unlike volumes, the host path is fully controlled by you — not Docker.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

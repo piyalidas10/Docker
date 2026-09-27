@@ -3,8 +3,9 @@
 **Bind mounts** map a file or directory on the **host machine** directly into a container. Unlike volumes, the host path is fully controlled by you — not Docker.
 
 > [!NOTE]
-> you cannot add a new bind mount to an already-created container.
+> You cannot add a new bind mount to an already-created container.
 > You have to remove the existing container & recreate it with bind mount
+> Docker interprets `docker run` as: "Create a NEW container from my-image and start it".
 
 ---
 
@@ -48,6 +49,7 @@ Windows CMD → %cd%
 ```
 
 > **Both commands create the same type of Docker bind mount**
+
 |                     | `-v`          | `--mount`     |
 | ------------------- | ------------- | ------------- |
 | Bind mount          | ✅             | ✅             |
@@ -218,7 +220,343 @@ docker run -it --rm \
 ---
 
 ## Source Code Example
-### A. Simple utility/container task
+
+### A. Run Nodejs application - In a real application, the container DOES stay running
+
+1. Create package.json
+```bash
+npm init -y
+```
+
+2. Create a Dockerfil
+
+3. Build image
+```bash
+docker build -t my-image .
+```
+**What happens during the build**
+```
+Your Windows project
+04-bind-mounts/
+│
+├── package.json
+├── package-lock.json
+└── src/
+    └── app.js
+        │
+        │ docker build
+        ▼
+Docker image
+/app/
+│
+├── package.json       ← COPY package*.json ./
+├── package-lock.json
+├── node_modules/      ← RUN npm install
+└── src/
+    └── app.js         ← COPY . .
+```
+<img src="imgs/docker_bind_mount_5.png" width="90%" />
+
+4. Then use the actual image name `my-image` to create & run the container `my-app`:
+```bash
+docker run --name my-app -v ${PWD}/src:/app/src my-image
+```
+<img src="imgs/docker_bind_mount_4.png" width="90%" />
+<img src="imgs/docker_bind_mount_6.png" width="90%" />
+<img src="imgs/docker_bind_mount_7.png" width="90%" />
+<img src="imgs/docker_bind_mount_8.png" width="90%" />
+
+5. So your architecture becomes:
+```
+HOST                              CONTAINER
+────────────────────────────────────────────────
+04-bind-mounts/
+│
+├── package.json  ──COPY────────→ /app/package.json
+│
+├── package-lock  ──COPY────────→ /app/package-lock.json
+│
+└── src/ ─────────bind mount───→ /app/src/
+                                      │
+                                      ├── app.js
+                                      └── data/
+                                          └── user.json
+```
+This is actually a very good example of why bind mounts are useful for development: your dependencies/package metadata can be part of the image, while your frequently changing source code is mounted from your host.
+
+6. Create product.json on the HOST
+Go to:
+```
+C:\PIYALI\Github\Docker\04-bind-mounts\src\data
+```
+Create:
+```
+product.json
+```
+with:
+```
+{
+  "id": 101,
+  "name": "Laptop",
+  "price": 75000
+}
+```
+Your host now has:
+```
+04-bind-mounts/
+├── Dockerfile
+├── package.json
+└── src/
+    └── data/
+        ├── user.json
+        └── product.json
+```
+
+7. If container is running. Go inside the container:
+```bash
+docker exec -it my-app bash
+```
+Now you're inside:
+```bash
+root@xxxxx:/#
+```
+Go to the mounted directory:
+```bash
+cd /app/src/data
+```
+Check files:
+```bash
+ls
+```
+You should see:
+```
+product.json
+```
+Now:
+```
+cat product.json
+```
+You should get:
+```
+{
+  "id": 101,
+  "name": "Laptop",
+  "price": 75000
+}
+```
+🎯 This proves the bind mount is working.
+
+8. Another way to verify - If container is running
+```bash
+docker exec my-app cat /app/src/data/product.json
+```
+or
+```bash
+docker exec my-app ls -la /app/src/data
+```
+<img src="imgs/docker_bind_mount_10.png" width="90%" />
+
+#### Why you don't see it in Docker Desktop
+Docker Desktop's container UI isn't necessarily a live file browser for the mounted directory. Refreshing the container page doesn't mean Docker Desktop will display every file under /app/src.
+<img src="imgs/docker_bind_mount_9.png" width="90%" />
+
+Think of it as:
+```
+                 Bind Mount
+Windows ───────────────────────── Container
+  │                                  │
+  │ src/data/product.json            │
+  │                                  │
+  └──────────────────────────────────┘
+```
+Docker Desktop is managing the container, but the file itself lives on your Windows filesystem.
+
+If you want to see it visually
+
+Open Windows Explorer:
+```
+C:\PIYALI\Github\Docker\04-bind-mounts\src\data
+```
+You should see:
+```
+product.json
+```
+Then verify the container side with:
+```bash
+docker exec my-app ls /app/src/data
+```
+You should get:
+```
+product.json
+```
+That is the strongest proof that the bind mount is working.
+
+If you specifically want to see it through Docker Desktop
+
+Open your container:
+```
+Containers
+   ↓
+bind-test
+```
+Look for a Files / Exec / terminal option depending on your Docker Desktop version. If there's an interactive terminal, run:
+```
+ls -la /app/src/data
+```
+But don't expect the normal Containers list refresh to make product.json appear as a Docker Desktop container item.
+
+The container is the Docker object; product.json is just a file inside its mounted filesystem.
+
+<img src="imgs/docker_bind_mount_11.png" width="90%" />
+<img src="imgs/docker_bind_mount_12.png" width="90%" />
+
+
+#### Why this is useful for development
+> **you do not need to run docker run every time to insert/update data in a bind mount.**
+
+The key idea is:
+> **The bind mount connects a host folder and a container folder. You can modify the host folder directly, even when the container is stopped.**
+
+Now Docker creates this mapping:
+```
+HOST                         CONTAINER
+
+src/  ────────────────────►  /app/src/
+ │                              │
+ │                              │
+ │  app.js                      │ app.js
+ │  data/                       │ data/
+ │                              │
+ └──── changes appear here ────┘
+```
+
+**Now add data from your host**
+
+For example, on Windows:
+```
+src/data/user.json
+```
+Create:
+```
+{
+  "name": "Piyali",
+  "role": "developer"
+}
+```
+You don't run docker run again.
+
+The container immediately sees:
+```
+/app/src/data/user.json
+```
+because both locations point to the same underlying files.
+
+1. Create the file on Windows
+
+Go to:
+```
+C:\PIYALI\Github\Docker\04-bind-mounts\src
+```
+Create:
+```
+src/
+└── data/
+    └── user.json
+```
+Put this inside user.json:
+
+{
+  "name": "Piyali",
+  "role": "developer"
+}
+2. Docker sees the same file
+
+Because of:
+```
+-v ${PWD}/src:/app/src
+```
+Docker maps:
+```
+Windows                                      Container
+─────────────────────────────────────────────────────────
+src/data/user.json  ──────────────────────► /app/src/data/user.json
+```
+So inside the container:
+
+ls /app/src/data
+
+you'll see:
+
+user.json
+
+And:
+
+cat /app/src/data/user.json
+
+returns:
+
+{
+  "name": "Piyali",
+  "role": "developer"
+}
+
+#### This is one of the main reasons bind mounts are commonly used for development:
+```
+             Developer
+                 │
+                 ▼
+            VS Code
+                 │
+          edits src/
+                 │
+                 ▼
+        ┌────────────────┐
+        │   Host folder  │
+        │     /src       │
+        └───────┬────────┘
+                │
+          bind mount
+                │
+                ▼
+        ┌────────────────┐
+        │    Container   │
+        │    /app/src    │
+        └────────────────┘
+                │
+                ▼
+          Application
+```
+
+**So you can:**
+```
+Edit code
+   ↓
+Save
+   ↓
+Host src/ changes
+   ↓
+Container /app/src changes
+   ↓
+Application sees changes
+```
+
+**docker run is only needed initially**
+
+For example:
+```
+docker run --name my-app -v ${PWD}/src:/app/src node:22
+```
+After that:
+```
+docker stop node:22
+```
+and later:
+```
+docker start node:22
+```
+You don't recreate the container.
+
+### B. Simple utility/container task
 1. Check your existing images
 ```bash
 docker images
@@ -295,128 +633,47 @@ Another containe is created
 <img src="imgs/docker_bind_mount_2.png" width="90%" />
 <img src="imgs/docker_bind_mount_3.png" width="90%" />
 
-### B. Node.js web application development
+4. `docker start youthful_hellman` container is stopping immediately after running
+> **Docker doesn't keep a container alive. The application process keeps the container alive.**
 
-```bash
-docker run --rm -p 3000:3000 -v $(pwd)/src:/app/src my-node-image
-```
+**Remember this rule**
 
-### Difference
-| Option                   | First           | Second     | Purpose                                      |
-| ------------------------ | --------------- | ---------- | -------------------------------------------- |
-| `docker run`             | ✅               | ✅          | Create & start container                     |
-| `--rm`                   | ✅               | ❌          | Automatically remove container when it stops |
-| `-p 3000:3000`           | ✅               | ❌          | Host port → container port                   |
-| `-v $(pwd)/src:/app/src` | ✅               | ✅          | Bind mount                                   |
-| Image                    | `my-node-image` | `my-image` | Image to run                                 |
+> **Container ≠ Virtual Machine**
 
-#### Use of -v
+A VM can sit there doing nothing.
 
-```bash
--v $(pwd)/src:/app/src
+A Docker container needs a running foreground process:
 ```
+Node application running  → container stays UP
+nginx running             → container stays UP
+tail -f /dev/null         → container stays UP
+bash running              → container stays UP
+process exits             → container STOPS
+```
+The container is not running because node:22 by itself doesn't have a long-running application to execute. The container is behaving correctly.
 
-means:
+When you created the container from:
 ```
-Your computer                  Container
+node:22
+```
+the image's default command starts Node.js.
 
-project/
-└── src/  ──────────────────► /app/src/
+If Node has nothing to do / its process exits, then:
 ```
-So if you modify:
+Node process exits
+       ↓
+PID 1 exits
+       ↓
+Container stops
 ```
-src/app.js
-```
-on your computer, the container sees the modified file at:
-```
-/app/src/app.js
-```
-This is useful for development.
+A Docker container is considered running only while its main process (PID 1) is running.
 
-#### What does -p 3000:3000 do?
-
-Suppose your app.js has:
+That's why you see:
 ```
-server.listen(3000);
+STATUS
+Exited (0)
 ```
-The application is listening on port 3000 inside the container.
-
-Without -p:
-```
-docker run -v $(pwd)/src:/app/src my-image
-```
-
-**you have:**
-```
-Browser
-   X
-   │
-   │  cannot access container port
-   ▼
-Container
-└── Node.js :3000
-```
-With:
-```
--p 3000:3000
-```
-
-**you create:**
-```
-Browser
-   │
-   │ localhost:3000
-   ▼
-HOST :3000
-   │
-   │ Docker port mapping
-   ▼
-CONTAINER :3000
-   │
-   ▼
-Node.js
-```
-Therefore:
-```
-docker run -p 3000:3000 -v $(pwd)/src:/app/src my-node-image
-```
-lets you open:
-```
-http://localhost:3000
-```
-
-#### What does --rm do?
-
-**Without --rm:**
-```
-docker run -v $(pwd)/src:/app/src my-image
-```
-When the application stops, the container becomes:
-```
-Running
-   ↓
-Stopped
-   ↓
-Container still exists
-```
-You can see it with:
-```
-docker ps -a
-```
-
-**With:**
-```
---rm
-```
-you get:
-```
-Running
-   ↓
-Stopped
-   ↓
-Container automatically deleted
-```
-This is very convenient for temporary development/test containers.
+0 is especially important: it means the process finished successfully, not that Docker necessarily encountered an error.
 
 
 ---
