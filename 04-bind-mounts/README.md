@@ -355,14 +355,14 @@ docker run -it --rm \
 
 ### A. Run Nodejs application - In a real application, the container DOES stay running
 
-1. Create package.json
+1. **Create package.json**
 ```bash
 npm init -y
 ```
 
-2. Create a Dockerfil
+2. **Create a Dockerfil**
 
-3. Build image
+3. **Build image**
 ```bash
 docker build -t my-image .
 ```
@@ -389,7 +389,7 @@ Docker image
 ```
 <img src="imgs/docker_bind_mount_5.png" width="90%" />
 
-4. Then use the actual image name `my-image` to create & run the container `my-app`:
+4. **Then use the actual image name `my-image` to create & run the container `my-app`:**
 ```bash
 docker run --name my-app -v ${PWD}/src:/app/src my-image
 ```
@@ -398,7 +398,7 @@ docker run --name my-app -v ${PWD}/src:/app/src my-image
 <img src="imgs/docker_bind_mount_7.png" width="90%" />
 <img src="imgs/docker_bind_mount_8.png" width="90%" />
 
-5. So your architecture becomes:
+5. **So your architecture becomes:**
 ```
 HOST                              CONTAINER
 ────────────────────────────────────────────────
@@ -416,7 +416,7 @@ HOST                              CONTAINER
 ```
 This is actually a very good example of why bind mounts are useful for development: your dependencies/package metadata can be part of the image, while your frequently changing source code is mounted from your host.
 
-6. Create product.json on the HOST
+6. **Create product.json on the HOST**
 Go to:
 ```
 C:\PIYALI\Github\Docker\04-bind-mounts\src\data
@@ -444,7 +444,7 @@ Your host now has:
         └── product.json
 ```
 
-7. If container is running. Go inside the container:
+7. **If container is running. Go inside the container:**
 ```bash
 docker exec -it my-app bash
 ```
@@ -478,7 +478,7 @@ You should get:
 ```
 🎯 This proves the bind mount is working.
 
-8. Another way to verify - If container is running
+8. **Another way to verify - If container is running**
 ```bash
 docker exec my-app cat /app/src/data/product.json
 ```
