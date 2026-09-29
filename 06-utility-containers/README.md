@@ -26,6 +26,8 @@ The `--rm` flag automatically removes the container after it exits, keeping your
 | Install npm packages | `docker run --rm -v $(pwd):/app node:20-alpine npm install` |
 | Run database migrations | `docker run --rm --network app-net my-app python manage.py migrate` |
 
+> 💡 For comprehensive deep dives and syntax patterns across all utility use cases, see [**Utility Container Use Cases & Patterns**](./UTILITY-USE-CASES.md).
+
 ---
 
 ## Pattern: Use the Project Directory as Workdir
