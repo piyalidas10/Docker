@@ -492,7 +492,8 @@ Docker will show information about it, including its storage location managed by
 <img src="./imgs/docker_volume_existing_image_8.png" width="90%" />
 
 ### Removing Container will not delete Volume
-**Before**
+#### Before
+
 <img src="./imgs/docker_volume_existing_image_7.png" width="90%" />
 
 ```bash
@@ -500,7 +501,8 @@ docker rm distracted_mirzakhani
 ```
 <img src="./imgs/docker_volume_existing_image_9.png" width="90%" />
 
-**After**
+#### After
+
 <img src="./imgs/docker_volume_existing_image_10.png" width="90%" />
 
 
