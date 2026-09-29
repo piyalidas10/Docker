@@ -20,6 +20,138 @@
 
 ---
 
+## Real-World Use Cases of Bind Mounts
+
+Bind mounts shine in scenarios where the **host filesystem and the container need to stay in sync in real time**. Below are the most common production and development patterns you'll encounter.
+
+### 1. Live-Reload Local Development
+
+Mount your source code directory into the container so every file save is instantly visible inside the running container — no rebuild required.
+
+```bash
+# Node.js app — nodemon watches for changes on the host
+docker run -v $(pwd):/app -w /app node:20 npx nodemon index.js
+```
+
+> **Why it matters:** A full `docker build` can take 30–120 seconds. With a bind mount, a file save is reflected in under a second, making the inner dev loop as fast as running the app natively.
+
+---
+
+### 2. Injecting Configuration Files at Runtime
+
+Supply environment-specific config (nginx, PostgreSQL, Redis, etc.) without baking it into the image, keeping images generic and reusable.
+
+```bash
+# Nginx — inject a custom site config from the host
+docker run -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro -p 80:80 nginx
+
+# PostgreSQL — override the default postgres config
+docker run -v $(pwd)/postgresql.conf:/etc/postgresql/postgresql.conf:ro postgres
+```
+
+> **Why it matters:** One image, many environments. Staging and production can share the same image but receive different config files at container start.
+
+---
+
+### 3. Real-Time Log Access & Analysis
+
+Bind-mount the container's log directory to the host so existing log-rotation tools, monitoring agents (Filebeat, Fluentd), or just a plain `tail -f` work directly.
+
+```bash
+docker run -v /var/log/myapp:/app/logs my-image
+
+# On the host — watch logs in real time
+tail -f /var/log/myapp/app.log
+```
+
+> **Why it matters:** No need to `docker exec` into a container or use `docker logs`. Log aggregation pipelines running on the host pick up log files as if the app ran natively.
+
+---
+
+### 4. Sharing Build Artifacts Between Host & Container
+
+Use Docker as a hermetic build environment while making the output (compiled binaries, dist bundles, test reports) available on the host immediately after the build.
+
+```bash
+# Compile a Go binary inside a container, output lands on the host
+docker run --rm -v $(pwd)/output:/out golang:1.22 \
+  sh -c "go build -o /out/myapp ./..."
+
+# Build a React app and place the dist/ folder on the host
+docker run --rm -v $(pwd):/app -w /app node:20 npm run build
+```
+
+> **Why it matters:** Your host doesn't need the exact compiler or toolchain version. The container provides the reproducible build environment; the host receives the artifact.
+
+---
+
+### 5. Database Data Directory (Development Only)
+
+Persist a database's data directory on the host so you can inspect, back up, or version individual SQL dump files between container restarts.
+
+```bash
+docker run -v $(pwd)/pgdata:/var/lib/postgresql/data postgres:16
+```
+
+> ⚠️ **Production note:** For production databases prefer **named volumes** over bind mounts — named volumes are portable and Docker manages permissions correctly across platforms.
+
+---
+
+### 6. Providing SSL/TLS Certificates
+
+Inject TLS certificates from a host-managed certificate store (e.g. Let's Encrypt / Certbot) into a web server container.
+
+```bash
+docker run \
+  -v /etc/letsencrypt/live/example.com/fullchain.pem:/certs/fullchain.pem:ro \
+  -v /etc/letsencrypt/live/example.com/privkey.pem:/certs/privkey.pem:ro \
+  -p 443:443 nginx
+```
+
+> **Why it matters:** Certbot renews certificates on the host. Because the mount is live, the container always serves the latest certificate without a redeploy.
+
+---
+
+### 7. Hot-Reloading CI/CD Pipeline Scripts
+
+Mount pipeline or deployment scripts into a tooling container so the CI system can update the script and re-run without rebuilding the image.
+
+```bash
+docker run --rm \
+  -v $(pwd)/scripts:/scripts \
+  -v $(pwd)/reports:/reports \
+  python:3.12 python /scripts/run_tests.py
+```
+
+---
+
+### 8. Docker Socket Mount (Advanced — Privileged Use)
+
+Mount the Docker daemon socket to allow a container to control Docker itself. Used by CI systems (Jenkins, GitLab Runner) and tools like Portainer.
+
+```bash
+docker run -v /var/run/docker.sock:/var/run/docker.sock docker:cli docker ps
+```
+
+> ⚠️ **Security warning:** Mounting the Docker socket gives the container **root-equivalent access** to the host. Only use this in trusted, controlled environments.
+
+---
+
+### Summary
+
+| Use Case | Host Path | Container Path | Mode |
+|---|---|---|---|
+| Live code reload | `./src` | `/app/src` | `rw` |
+| Config injection | `./nginx.conf` | `/etc/nginx/nginx.conf` | `ro` |
+| Log collection | `/var/log/myapp` | `/app/logs` | `rw` |
+| Build artifacts | `./output` | `/out` | `rw` |
+| Dev database | `./pgdata` | `/var/lib/postgresql/data` | `rw` |
+| TLS certificates | `/etc/letsencrypt/…` | `/certs` | `ro` |
+| CI scripts | `./scripts` | `/scripts` | `ro` |
+| Docker socket | `/var/run/docker.sock` | `/var/run/docker.sock` | `rw` |
+
+---
+
 ## Basic Usage
 
 ```bash
