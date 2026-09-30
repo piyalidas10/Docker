@@ -37,6 +37,125 @@ Redis and PostgreSQL can — and must — use Docker volumes for their own persi
 
 ---
 
+## The Problem: Ephemeral Container Storage
+
+Without Docker volumes, both Redis and your primary database are completely volatile.
+The moment their containers stop, restart, or crash, your data vanishes instantly.
+
+It is easy to think of containers as self-contained units, but their filesystems are
+**ephemeral by design**. When you write data to a database running inside a container,
+that data is written to a **temporary container layer**. If the container is deleted,
+that layer is destroyed with it.
+
+### Why This Happens
+
+```
+Container Filesystem (overlay2)
+┌─────────────────────────────────────────┐
+│  Image Layer (read-only)                │
+│  ─────────────────────────────────────  │
+│  Container Writable Layer (ephemeral)   │
+│                                         │
+│  /var/lib/postgresql/data  ◄── DB writes│
+│  /data/dump.rdb            ◄── Redis    │
+│                                         │
+│  docker rm  →  THIS LAYER IS GONE  ❌  │
+└─────────────────────────────────────────┘
+```
+
+**Two specific failure modes:**
+
+#### 1. Data Loss on Recreate
+Stopping a container (`docker stop`) does not delete data.
+But the moment you run `docker rm`, or update the container image during a deployment,
+the container is recreated — and the database state is **completely wiped**.
+
+```bash
+docker stop my-postgres     # data still there
+docker rm my-postgres       # data GONE ❌
+docker run postgres:16 ...  # starts with empty database
+```
+
+#### 2. Performance Overhead of the Writable Layer
+Writing directly to a container's writable layer requires the storage driver
+(`overlay2`) to manage a **copy-on-write filesystem**. Every write triggers
+an additional copy operation — introducing a performance penalty that is
+highly inefficient for heavy database I/O.
+
+```
+Without Volume (overlay2 copy-on-write)
+  Write → copy block from image layer → modify → save to container layer
+  Penalty: significant overhead on every I/O operation
+
+With Volume (native host I/O)
+  Write → goes directly to host disk
+  Penalty: none — same performance as writing on the host itself
+```
+
+---
+
+## The Solution: Docker Volumes
+
+Docker volumes **bypass the container filesystem entirely** and write data directly
+to the host machine's disk. This solves both problems:
+
+| Problem | Without Volume | With Volume |
+|---|---|---|
+| **Data Persistence** | Tied to container lifecycle — destroyed on `docker rm` | Decoupled from container — survives destroy, upgrade, replace |
+| **I/O Performance** | overlay2 copy-on-write overhead | Native host disk I/O — no overhead |
+| **Backups** | Data scattered in container layers, hard to find | Lives in a named location on the host — easy to back up, migrate, share |
+
+### Data Persistence in Practice
+
+```
+Without Volume                      With Volume
+──────────────────────              ──────────────────────
+Container A (postgres:15)           Container A (postgres:15)
+  └── /var/lib/postgresql ──X         └── /var/lib/postgresql ──┐
+                                                                  ▼
+Container deleted                                          Docker Volume
+                                                           [ pg_data ]
+Container B (postgres:16)                                        │
+  └── /var/lib/postgresql ──X         Container B (postgres:16) │
+       (starts empty) ❌               └── /var/lib/postgresql ◄─┘
+                                            (picks up where A left off) ✓
+```
+
+You can destroy, upgrade, or replace the container — the new one picks up
+right where the old one left off.
+
+### Production Implementation
+
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+    volumes:
+      - db_data:/var/lib/postgresql/data   # persists the DB state
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes  # enables AOF persistence
+    volumes:
+      - redis_data:/data                   # persists memory snapshots + AOF log
+
+volumes:
+  db_data:      # managed volume created on the host
+  redis_data:
+```
+
+> **Redis note:** The volume alone is not enough for Redis. You must also enable
+> persistence flags so Redis actually writes its in-memory data to the volume:
+> - `--appendonly yes` — Append Only File (AOF), records every write operation
+> - `--save 60 1` — RDB snapshot every 60 seconds if at least 1 key changed
+> Without these flags, Redis holds everything in RAM and writes nothing to the volume.
+
+---
+
 ## Redis Has Its Own Storage — So Why a Volume?
 
 This is the most common point of confusion. Let's unpack it precisely.
