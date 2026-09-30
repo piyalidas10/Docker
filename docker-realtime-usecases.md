@@ -245,6 +245,286 @@ docker buildx build \
 
 ---
 
+## 11. Persistent Storage — What Lives in Docker Volumes
+
+**Scenario:** A production SaaS stack needs its data to survive container restarts,
+image upgrades, and node replacements. The question is: what exactly goes into a volume?
+
+**How Docker volumes help:**
+- Decouple data lifetime from container lifetime — the container is disposable, the volume is not.
+- Bypass the overlay2 copy-on-write filesystem for native host I/O performance.
+- Provide a named, locatable place on the host for backups, migration, and sharing between containers.
+
+### 11.1 DB Data Files (The Database Itself)
+
+The most critical use. Without a volume, every `docker rm` or image upgrade wipes the entire database.
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    volumes:
+      - pg_data:/var/lib/postgresql/data   # tables, indexes, WAL logs
+
+  mysql:
+    image: mysql:8
+    volumes:
+      - mysql_data:/var/lib/mysql          # InnoDB data files, redo logs
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db               # BSON documents, oplog
+
+volumes:
+  pg_data:
+  mysql_data:
+  mongo_data:
+```
+
+---
+
+### 11.2 Redis Persistence (RDB / AOF)
+
+Redis keeps data in RAM. RDB snapshots and AOF logs are how it writes that data to disk.
+Without a volume those files are inside the container layer — destroyed on container removal.
+
+```yaml
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1 --appendonly yes
+    volumes:
+      - redis_data:/data     # dump.rdb + appendonly.aof survive container replacement
+
+volumes:
+  redis_data:
+```
+
+> **Note:** The volume alone is not enough. Without `--appendonly yes` or `--save`,
+> Redis holds everything in RAM and writes nothing to disk at all.
+
+---
+
+### 11.3 TLS Certificates
+
+Let's Encrypt certificates (managed by Certbot or Traefik) and internal CA certificates
+must survive container restarts. Without a volume, HTTPS breaks on every restart.
+
+```yaml
+services:
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - certs:/etc/letsencrypt          # certificate + private key
+      - certs_www:/var/www/certbot      # ACME challenge files
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certs:/etc/letsencrypt          # writes renewed certs here
+      - certs_www:/var/www/certbot
+
+volumes:
+  certs:
+  certs_www:
+```
+
+---
+
+### 11.4 Application Logs
+
+Logs written by the app to disk must survive container crashes — that is exactly when
+you need them most for incident debugging. A shared volume lets a log shipper read them
+independently of the app container.
+
+```yaml
+services:
+  app:
+    image: myapp:latest
+    volumes:
+      - app_logs:/var/log/myapp         # logs survive crashes
+
+  log_shipper:
+    image: grafana/promtail:latest
+    volumes:
+      - app_logs:/var/log/myapp:ro      # ships to Loki; read-only mount
+
+volumes:
+  app_logs:
+```
+
+---
+
+### 11.5 File Uploads (Staging)
+
+Files uploaded by users need to survive long enough for processing (virus scan, resizing,
+format conversion) before being pushed to permanent object storage (S3, Azure Blob).
+
+```yaml
+services:
+  api:
+    image: myapi:latest
+    volumes:
+      - uploads:/app/uploads            # receives and stores uploaded files
+
+  processor:
+    image: file-processor:latest
+    volumes:
+      - uploads:/app/uploads:ro         # reads, scans, then pushes to blob storage
+
+volumes:
+  uploads:
+```
+
+---
+
+### 11.6 Message Queue Messages
+
+Kafka and RabbitMQ store unacknowledged messages on disk. Without a volume,
+in-flight messages between services are destroyed when the broker container restarts.
+
+```yaml
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq  # queue definitions + unacknowledged messages
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    volumes:
+      - kafka_data:/var/lib/kafka/data   # topic partitions + consumer offsets
+
+volumes:
+  rabbitmq_data:
+  kafka_data:
+```
+
+---
+
+### 11.7 Search Indexes
+
+Elasticsearch, OpenSearch, and Meilisearch build large on-disk indexes. Rebuilding them
+from scratch against a production dataset can take hours — they must never be lost.
+
+```yaml
+services:
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    volumes:
+      - es_data:/usr/share/elasticsearch/data   # inverted indexes, shards, segments
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    volumes:
+      - meili_data:/meili_data                  # full search index
+
+volumes:
+  es_data:
+  meili_data:
+```
+
+---
+
+### 11.8 Metrics / Time-Series Data
+
+Prometheus scrapes and stores time-series blocks on disk with a default 15-day retention.
+Grafana stores dashboard definitions and datasource config. Both are lost without volumes.
+
+```yaml
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - prometheus_data:/prometheus      # time-series metric blocks (15-day retention)
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana_data:/var/lib/grafana    # dashboards, datasources, user settings
+
+volumes:
+  prometheus_data:
+  grafana_data:
+```
+
+---
+
+### 11.9 Build / Package Caches
+
+CI/CD pipeline containers re-download npm packages, Maven JARs, or pip wheels on every
+run if nothing is cached. Mounting a cache volume reduces build time from minutes to seconds.
+
+```yaml
+services:
+  builder:
+    image: node:20
+    volumes:
+      - npm_cache:/root/.npm             # npm package cache survives between builds
+      - maven_cache:/root/.m2            # Maven local repository
+
+volumes:
+  npm_cache:
+  maven_cache:
+```
+
+---
+
+### 11.10 Runtime Secrets (Files)
+
+API keys, service account JSON files, and TLS private keys should never be baked into
+a Docker image. They are mounted as read-only volumes at runtime from the host or a
+secrets manager (Docker Swarm Secrets, Kubernetes Secrets, Azure Key Vault CSI).
+
+```yaml
+services:
+  app:
+    image: myapp:latest
+    volumes:
+      - /run/secrets/db_password:/run/secrets/db_password:ro   # read-only secret file
+      - /run/secrets/api_key:/run/secrets/api_key:ro
+```
+
+In Kubernetes the same pattern applies — Secrets are projected as volume mounts:
+
+```yaml
+volumes:
+  - name: app-secrets
+    secret:
+      secretName: my-app-secrets
+```
+
+---
+
+### Production Volume Map
+
+```
+Production Docker Stack
+│
+├── pg_data             → PostgreSQL tables, indexes, WAL logs
+├── mysql_data          → MySQL InnoDB data files
+├── mongo_data          → MongoDB documents, oplog
+├── redis_data          → Redis RDB snapshots + AOF log
+├── es_data             → Elasticsearch indexes + shards
+├── kafka_data          → Kafka topic partitions + consumer offsets
+├── rabbitmq_data       → RabbitMQ queues + unacked messages
+├── certs               → TLS certificates + private keys
+├── app_logs            → Application log files
+├── uploads             → User upload staging area
+├── prometheus_data     → Metrics time-series (15-day retention)
+├── grafana_data        → Dashboards + datasource config
+├── npm_cache           → npm package cache (CI/CD)
+└── maven_cache         → Maven local repository (CI/CD)
+```
+
+### The Rule
+
+> If a process writes important data to disk and that data must survive
+> a container restart or replacement — it needs a Docker volume.
+
+---
+
 ## Summary Table
 
 | Use Case                        | Key Benefit                          |
@@ -259,6 +539,7 @@ docker buildx build \
 | ML Model Serving                | Reproducible, versionable inference  |
 | Scheduled / Batch Jobs          | Ephemeral, dependency-safe execution |
 | Edge / IoT Deployments          | Uniform deployment across devices    |
+| **Persistent Storage (Volumes)**| Data survives container lifecycle    |
 
 ---
 
