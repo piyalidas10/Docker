@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-app-svc
+  labels:
+    app: node-app
+spec:
+  # NodePort exposes the service on a static port on each Node's IP.
+  # Use type: LoadBalancer when deploying on a cloud provider (AWS/GCP/Azure).
+  type: NodePort
+  selector:
+    # Routes traffic to all Pods with this label
+    app: node-app
+  ports:
+    - name: http
+      protocol: TCP
+      # Port exposed by the Service inside the cluster
+      port: 80
+      # Port the container listens on
+      targetPort: 3000
+      # External port accessible at <node-ip>:30080
+      nodePort: 30080

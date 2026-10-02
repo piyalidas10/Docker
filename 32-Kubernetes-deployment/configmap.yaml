@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-app-config
+  labels:
+    app: node-app
+data:
+  # Application environment — injected as APP_ENV inside the container
+  APP_ENV: "production"
+  # Port the app listens on — injected as PORT inside the container
+  PORT: "3000"
