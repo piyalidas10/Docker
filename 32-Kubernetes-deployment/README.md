@@ -68,6 +68,219 @@
 
 ---
 
+## Why 3 Pods?
+
+The [`deployment.yaml`](deployment.yaml) sets `replicas: 3`, meaning Kubernetes always keeps **three identical copies** of the Node.js container running simultaneously. Here is why that number matters:
+
+### 1 — High Availability (no single point of failure)
+If one Pod crashes, is evicted, or its node goes down, the other two Pods keep serving traffic without any interruption. The Deployment controller detects the lost Pod and immediately schedules a replacement, restoring the replica count back to 3.
+
+| Replicas | One Pod dies | Result |
+|---|---|---|
+| 1 | ✗ | **Downtime** — app is unavailable until the replacement starts |
+| 3 | ✗ | **No downtime** — 2 Pods continue serving; replacement starts in background |
+
+### 2 — Load Distribution
+The Service (NodePort / LoadBalancer) acts as a built-in load balancer. Incoming requests are round-robin'd across all healthy Pods, so no single Pod is a bottleneck. Three replicas triple the throughput capacity compared to one.
+
+```
+Request 1  →  POD 1
+Request 2  →  POD 2
+Request 3  →  POD 3
+Request 4  →  POD 1   ← round-robin restarts
+```
+
+### 3 — Zero-Downtime Rolling Updates
+When you push a new image version (`kubectl set image …`), Kubernetes performs a **rolling update**:
+
+1. Starts a new Pod with the updated image.
+2. Waits for it to become `Ready`.
+3. Terminates one old Pod.
+4. Repeats until all 3 Pods run the new version.
+
+With 3 replicas the default strategy (`maxUnavailable: 1`, `maxSurge: 1`) guarantees **at least 2 Pods are always up** during the rollout — traffic never drops to zero.
+
+### 4 — Graceful Node Maintenance
+When a cluster node is drained for maintenance (`kubectl drain`), Kubernetes evicts its Pods and reschedules them on other nodes. With 3 replicas spread across nodes, at most 1 Pod is displaced at a time while the remaining 2 stay live.
+
+### Summary
+
+| Reason | Benefit |
+|---|---|
+| High Availability | Survives individual Pod or node failure without downtime |
+| Load Distribution | Spreads traffic; increases throughput |
+| Rolling Updates | At least 2 Pods serving during a deployment rollout |
+| Node Maintenance | Pods re-scheduled without full service interruption |
+
+> **Tip:** 3 is the recommended minimum for production workloads. You can scale up at any time with `kubectl scale deployment node-app --replicas=5`.
+
+---
+
+## How to Decide How Many Pods to Run
+
+There is no single magic number. The right replica count is driven by four factors: **traffic load**, **availability target**, **resource budget**, and **whether you use auto-scaling**. Work through each factor in order.
+
+---
+
+### Factor 1 — Availability Target (minimum floor)
+
+This is your starting point before you think about load at all.
+
+| Environment | Minimum replicas | Rationale |
+|---|---|---|
+| Local / dev | 1 | No HA needed; cost matters |
+| Staging | 2 | Catch config issues; cheap HA |
+| Production | **3** | Survive 1 failure + tolerate a rolling update simultaneously |
+| Business-critical | 5+ | Survive 2 simultaneous failures |
+
+> **Rule of thumb:** Always run at least **N + 1** replicas, where N is the number of simultaneous failures you want to tolerate.
+> For 1 failure tolerance → 2 replicas minimum. For 2 → 3 minimum. For 3 → 4 minimum, and so on.
+
+---
+
+### Factor 2 — Traffic Load (throughput ceiling)
+
+Measure (or estimate) how many requests per second (RPS) your app must handle at peak, then divide by what a single Pod can serve.
+
+```
+                Peak RPS you must handle
+replicas  =  ──────────────────────────────
+               RPS a single Pod can serve
+```
+
+**Example:**
+- Your load test shows one Pod handles **200 RPS** at ≤ 200 ms p99 latency.
+- Your peak traffic is **900 RPS**.
+- Raw replicas needed: 900 ÷ 200 = **4.5 → round up to 5**.
+- Add a 20 % headroom buffer: 5 × 1.2 = **6 replicas**.
+
+**How to measure a single Pod's capacity:**
+
+```bash
+# Run the app with 1 replica
+kubectl scale deployment node-app --replicas=1
+
+# Load-test it (install k6 or hey first)
+k6 run --vus 50 --duration 30s loadtest.js
+# or
+hey -n 10000 -c 50 http://<node-ip>:30080/
+```
+
+Watch CPU and memory while ramping up concurrent users. The replica capacity is the RPS at which latency or error rate first degrades.
+
+---
+
+### Factor 3 — Node & Resource Budget
+
+Each Pod consumes CPU and memory from a worker node. Make sure your cluster can actually schedule all the replicas you want.
+
+```
+Max replicas on a node  =  floor( node_allocatable_cpu / pod_cpu_request )
+```
+
+**Example — single node with 4 CPU cores:**
+
+| Pod CPU request | Max Pods schedulable |
+|---|---|
+| 0.5 CPU (500 m) | 4 ÷ 0.5 = **8 Pods** |
+| 1.0 CPU | 4 ÷ 1.0 = **4 Pods** |
+| 2.0 CPU | 4 ÷ 2.0 = **2 Pods** |
+
+Check your node's allocatable resources:
+```bash
+kubectl describe node <node-name> | grep -A5 "Allocatable"
+```
+
+Check what each Pod currently consumes:
+```bash
+kubectl top pod
+```
+
+> **Tip:** Always set `resources.requests` and `resources.limits` in [`deployment.yaml`](deployment.yaml). Without them the Scheduler cannot make placement decisions and you risk node OOM.
+
+---
+
+### Factor 4 — Horizontal Pod Autoscaler (HPA) — let Kubernetes decide
+
+Instead of manually picking a fixed number, define a **minimum** and **maximum** and let the HPA scale automatically based on CPU or custom metrics.
+
+```yaml
+# hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: node-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: node-app
+  minReplicas: 3        # ← never go below 3 (availability floor)
+  maxReplicas: 10       # ← never exceed 10 (cost ceiling)
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60   # scale out when avg CPU > 60 %
+```
+
+```bash
+kubectl apply -f hpa.yaml
+kubectl get hpa          # watch it scale
+```
+
+**How HPA chooses replica count:**
+
+```
+desired replicas  =  ceil( current replicas × ( current metric / target metric ) )
+
+Example:
+  current replicas = 3,  current CPU = 90 %,  target = 60 %
+  desired = ceil( 3 × 90/60 ) = ceil(4.5) = 5
+```
+
+HPA will scale up to 5 Pods, then back down once traffic subsides.
+
+---
+
+### Decision Checklist
+
+Work through this before setting `replicas:` in [`deployment.yaml`](deployment.yaml):
+
+```
+[ ] 1. What is the minimum replica count for my availability SLA?
+         → dev: 1  |  staging: 2  |  prod: 3+
+
+[ ] 2. What is the peak RPS I need to handle?
+         → divide by single-Pod capacity, add 20 % headroom
+
+[ ] 3. Do my worker nodes have enough CPU/memory to schedule that many Pods?
+         → kubectl describe node + kubectl top pod
+
+[ ] 4. Should I use HPA?
+         → yes for variable/unpredictable traffic
+         → no for steady, predictable load where a fixed count is fine
+
+[ ] 5. Set replicas = max( availability floor, load-based count )
+```
+
+---
+
+### Quick Reference
+
+| Scenario | Recommended replicas |
+|---|---|
+| Local development | 1 |
+| CI / staging | 2 |
+| Small production (< 500 RPS) | 3 |
+| Medium production (500–2 000 RPS) | 5–8 |
+| High-traffic production (> 2 000 RPS) | HPA: min 5, max 20+ |
+| Mission-critical (zero-downtime SLA) | HPA: min 6, max 30+ across 3 AZs |
+
+---
+
 ## Step-by-Step Deployment Process
 
 ### Step 1 — Write the Node.js Application
