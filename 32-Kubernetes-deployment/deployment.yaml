@@ -1,52 +1,111 @@
+# =============================================================================
+# deployment.yaml — Kubernetes Deployment for node-app
+# =============================================================================
+#
+# This manifest addresses the following production concerns:
+#
+#  Feature                  Production problem                  Solution
+#  -----------------------  ----------------------------------  ---------------------------------
+#  Deployment               Managing containers manually        Declarative workload management
+#  replicas: 3              Single-container failure            Multiple instances
+#  Deployment controller    Pod disappears                      Replacement Pod (auto-reconcile)
+#  livenessProbe            Application is stuck/broken         Restart unhealthy container
+#  readinessProbe           New/broken Pod receives traffic     Remove it from Service traffic
+#  resources.requests       Scheduling/resource contention      Resource-aware scheduling
+#  resources.limits         One app consumes too many resources Resource boundaries
+#  ConfigMap (envFrom)      Configuration baked into image      External configuration
+#  Service *                Pod IPs change                      Stable networking (service.yaml)
+#  HPA *                    Traffic changes                     Automatic Pod scaling (hpa.yaml)
+#  Deployment rollout *     Version upgrade downtime            Controlled rolling update
+#  Kubernetes scheduling *  VM/node failures                    Reschedule workloads
+#
+#  (* defined in separate manifests)
+#
+# =============================================================================
+
 apiVersion: apps/v1
+
+# Deployment: declarative workload management — Kubernetes reconciles actual
+# state toward desired state continuously (replaces manual container management).
 kind: Deployment
+
 metadata:
   name: node-app
   labels:
     app: node-app
+
 spec:
-  # Number of Pod replicas to keep running
+  # replicas: 3 — runs multiple instances so a single Pod failure does not
+  # take the application offline. The Deployment controller detects a missing
+  # Pod and schedules a replacement automatically.
   replicas: 3
-  # Match Pods with this label
+
+  # selector + template labels must match so the Deployment knows which Pods
+  # it owns and should reconcile.
   selector:
     matchLabels:
       app: node-app
+
   template:
     metadata:
       labels:
         app: node-app
+
     spec:
       containers:
         - name: node-app
-          # Replace with your Docker Hub username or registry path
+
+          # Replace with your Docker Hub username or registry path.
+          # Production tip: pin to an immutable tag (e.g. node-app:1.2.0) or
+          # a digest rather than :latest for reproducible deployments.
           image: <your-dockerhub-username>/node-app:latest
-          # Always pull the latest image from the registry
+
+          # Always pull the latest image from the registry on container start.
           imagePullPolicy: Always
+
+          # containerPort documents that the app listens on 3000; it does not
+          # expose the app externally — that is handled by service.yaml.
           ports:
             - containerPort: 3000
-          # Inject environment variables from the ConfigMap
+
+          # envFrom (ConfigMap) — injects APP_ENV, PORT, etc. at runtime so
+          # configuration is not baked into the container image. The same
+          # image can run in dev, staging, and production with different
+          # ConfigMaps (external configuration concern).
           envFrom:
             - configMapRef:
                 name: node-app-config
-          # Liveness probe — restart container if it becomes unresponsive
+
+          # livenessProbe — answers "Is this container still healthy/alive?"
+          # If the probe repeatedly fails, Kubernetes restarts the container,
+          # recovering from deadlocks or frozen processes automatically.
           livenessProbe:
             httpGet:
               path: /health
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 15
-          # Readiness probe — only send traffic when the container is ready
+
+          # readinessProbe — answers "Is this Pod ready to receive traffic?"
+          # If the probe fails, Kubernetes removes the Pod from Service
+          # endpoints so broken or still-starting Pods never receive traffic.
           readinessProbe:
             httpGet:
               path: /health
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
-          # Resource requests and limits
+
           resources:
+            # requests: resources Kubernetes reserves when scheduling this Pod
+            # onto a node — prevents resource contention and enables
+            # resource-aware placement decisions by the Scheduler.
             requests:
               memory: "64Mi"
-              cpu: "100m"
+              cpu: "100m"    # 100m = 0.1 CPU core
+
+            # limits: maximum resources this container may consume — prevents
+            # one application from starving other Pods on the same node.
             limits:
               memory: "128Mi"
-              cpu: "250m"
+              cpu: "250m"    # 250m = 0.25 CPU core

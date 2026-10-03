@@ -327,6 +327,15 @@ The [`configmap.yaml`](configmap.yaml) stores environment variables separately f
 kubectl apply -f configmap.yaml
 ```
 
+Verify it was created:
+
+```bash
+kubectl get configmap
+kubectl describe configmap node-app-config
+```
+
+> See [ConfigMap — Separating Configuration from the Container Image](#configmap--separating-configuration-from-the-container-image) below for a full explanation of what this object does and why it matters.
+
 ---
 
 ### Step 5 — Apply the Deployment
@@ -336,6 +345,8 @@ The [`deployment.yaml`](deployment.yaml) tells Kubernetes:
 - How many Pod replicas to maintain (3 in this example).
 - Which environment variables (from the ConfigMap) to inject.
 - Resource requests and limits for each Pod.
+
+The [`deployment.yaml`](deployment.yaml) declares the **desired state** of the application: which image to run, how many replicas to maintain, how configuration is injected, how health is monitored, and how CPU/memory resources are allocated. Kubernetes continuously reconciles the actual state toward this desired state.
 
 ```bash
 kubectl apply -f deployment.yaml
@@ -353,6 +364,8 @@ node-app-6d7b9c8f4-abc12    1/1     Running   0          30s
 node-app-6d7b9c8f4-def34    1/1     Running   0          30s
 node-app-6d7b9c8f4-ghi56    1/1     Running   0          30s
 ```
+
+> See [Deployment — How deployment.yaml Works](#deployment--how-deploymentyaml-works) below for a detailed breakdown of every section of the manifest.
 
 ---
 
@@ -423,6 +436,519 @@ kubectl delete -f service.yaml
 kubectl delete -f deployment.yaml
 kubectl delete -f configmap.yaml
 ```
+
+---
+
+## Deployment — How deployment.yaml Works
+
+[`deployment.yaml`](deployment.yaml) does more than run a container — it declares the **desired state** of the application and Kubernetes continuously works to maintain that state.
+
+### Overall structure
+
+```
+             Kubernetes Deployment
+              node-app
+                  │
+                  │ replicas: 3
+                  ▼
+         ┌───────────────────┐
+         │    ReplicaSet     │
+         └─────────┬─────────┘
+                   │
+         maintains 3 Pods
+      ┌────────────┼────────────┐
+      ▼            ▼            ▼
+   Pod #1        Pod #2       Pod #3
+      │            │            │
+  node-app      node-app     node-app
+  container     container    container
+      │            │            │
+      └────────────┼────────────┘
+                   │
+            Docker Image
+    <username>/node-app:latest
+```
+
+---
+
+### 1 — `replicas: 3`
+
+```yaml
+replicas: 3
+```
+
+You are telling Kubernetes: *"I want 3 Pods running this application."*
+
+If one Pod crashes, Kubernetes detects the drift from desired state and creates a replacement automatically:
+
+```
+Before:               Kubernetes:            After:
+Pod 1 ✅                                     Pod 1 ✅
+Pod 2 ✅   →   creates replacement Pod   →   Pod 2 ✅
+Pod 3 ❌                                     Pod 3 ✅
+```
+
+This is one of the key differences between simply running a `docker run` container and using Kubernetes orchestration.
+
+---
+
+### 2 — `selector` and Pod labels
+
+```yaml
+selector:
+  matchLabels:
+    app: node-app
+
+template:
+  metadata:
+    labels:
+      app: node-app
+```
+
+These two blocks must match. The selector tells the Deployment which Pods it owns:
+
+```
+Deployment
+    │
+    │  "Manage Pods having app=node-app"
+    ▼
+Pods
+├── app=node-app  ← managed
+├── app=node-app  ← managed
+└── app=node-app  ← managed
+```
+
+---
+
+### 3 — Container image
+
+```yaml
+image: <your-dockerhub-username>/node-app:latest
+imagePullPolicy: Always
+```
+
+Kubernetes tells the container runtime: *"Run this image."*
+
+With `imagePullPolicy: Always`, Kubernetes pulls the image from the registry every time a container starts.
+
+> **Production note:** `latest` + `Always` is convenient for learning. Production deployments should pin to an immutable tag or digest:
+> ```yaml
+> image: piyali/node-app:1.2.0
+> # or preferably a digest for exact reproducibility
+> image: piyali/node-app@sha256:abc123...
+> ```
+
+---
+
+### 4 — ConfigMap injection
+
+```yaml
+envFrom:
+  - configMapRef:
+      name: node-app-config
+```
+
+This connects [`configmap.yaml`](configmap.yaml) to the running container:
+
+```
+ConfigMap
+node-app-config
+      │
+      ├── APP_ENV=production
+      └── PORT=3000
+               │
+               ▼
+         Pod container
+               │
+               ▼
+     process.env.APP_ENV  →  "production"
+     process.env.PORT     →  "3000"
+```
+
+The Deployment does not hard-code those values into the container image — see [ConfigMap — Separating Configuration from the Container Image](#configmap--separating-configuration-from-the-container-image) for full details.
+
+---
+
+### 5 — `containerPort`
+
+```yaml
+ports:
+  - containerPort: 3000
+```
+
+This **documents** that the application listens on port 3000. It does not by itself expose the application outside the Pod.
+
+External and internal network access requires a Kubernetes Service:
+
+```
+Client
+   │
+   ▼
+Service
+   │
+   ├──────► Pod 1 :3000
+   ├──────► Pod 2 :3000
+   └──────► Pod 3 :3000
+```
+
+---
+
+### 6 — Liveness vs Readiness probes
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+```
+
+Both probes hit the same `/health` endpoint but serve different purposes:
+
+```
+                  Pod
+                   │
+          ┌────────┴────────┐
+          │                 │
+      Liveness           Readiness
+          │                 │
+  "Are you alive?"   "Can you receive
+                          traffic?"
+          │                 │
+    restart container   remove from Service
+    if probe fails      endpoints if probe fails
+                        (container stays running)
+```
+
+| Probe | Failure action | Use for |
+|---|---|---|
+| Liveness | Restart the container | Detecting deadlocks or frozen processes |
+| Readiness | Remove Pod from Service endpoints | Delaying traffic until the app has fully started |
+
+---
+
+### 7 — Resource requests and limits
+
+```yaml
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "100m"
+  limits:
+    memory: "128Mi"
+    cpu: "250m"
+```
+
+| Field | Meaning |
+|---|---|
+| `requests` | Resources Kubernetes **reserves** when scheduling the Pod onto a node |
+| `limits` | Maximum resources the container is **allowed to consume** |
+
+CPU is measured in millicores: `100m` = 0.1 CPU, `250m` = 0.25 CPU.
+
+Without `requests`, the Scheduler cannot make placement decisions and nodes risk running out of memory (OOM).
+
+---
+
+### Full picture
+
+Putting all sections together, your Kubernetes architecture is:
+
+```
+                     Kubernetes Cluster
+                            │
+                     ┌──────▼──────┐
+                     │ Deployment  │
+                     │  node-app   │
+                     │ replicas: 3 │
+                     └──────┬──────┘
+                            │
+          ┌─────────────────┼─────────────────┐
+          ▼                 ▼                 ▼
+       Pod #1             Pod #2             Pod #3
+          │                 │                 │
+          └─────────────────┼─────────────────┘
+                            │
+                     Node.js Container
+                            │
+                ┌───────────┴───────────┐
+                │                       │
+             Image                   ConfigMap
+                │                       │
+         node-app:latest          APP_ENV=production
+                                  PORT=3000
+                │
+                ▼
+          Health Checks
+         ┌──────────────┐
+         │ Liveness     │ → restart if unhealthy
+         │ Readiness    │ → receive traffic when ready
+         └──────────────┘
+                │
+                ▼
+         Resource Controls
+         CPU / Memory requests & limits
+```
+
+> **Summary:** `deployment.yaml` defines the desired state of the application: which container image to run, how many replicas should exist, how Pods are identified, how configuration is injected, how health is monitored, and how CPU/memory resources are allocated. Kubernetes continuously reconciles the actual state toward this desired state.
+
+---
+
+## ConfigMap — Separating Configuration from the Container Image
+
+The key Kubernetes concept behind [`configmap.yaml`](configmap.yaml) is **separating application configuration from the container image**.
+
+### What the ConfigMap contains
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-app-config
+data:
+  APP_ENV: "production"
+  PORT: "3000"
+```
+
+Kubernetes stores these key/value pairs as a named object:
+
+```
+Kubernetes
+   │
+   └── ConfigMap: node-app-config
+          │
+          ├── APP_ENV = production
+          └── PORT    = 3000
+```
+
+### How the Deployment injects them
+
+The [`deployment.yaml`](deployment.yaml) references the ConfigMap via `envFrom`:
+
+```yaml
+spec:
+  containers:
+    - name: node-app
+      image: my-node-app:1.0
+      envFrom:
+        - configMapRef:
+            name: node-app-config
+```
+
+At runtime, every key in the ConfigMap becomes an environment variable inside the container:
+
+```
+process.env.APP_ENV  →  "production"
+process.env.PORT     →  "3000"
+```
+
+### Why this matters — immutable images
+
+**Without ConfigMap** — configuration is baked into the image:
+
+```
+Node.js code
+    +
+Dockerfile
+    +
+APP_ENV=production
+PORT=3000
+    ↓
+Docker Image
+
+If APP_ENV changes (production → staging), you must rebuild the image.
+```
+
+**With ConfigMap** — the same image runs in every environment:
+
+```
+              ┌──────────────────────┐
+              │   Docker Image       │
+              │   node-app:1.0       │
+              │                      │
+              │   Application Code   │
+              └──────────┬───────────┘
+                         │
+              ┌──────────▼───────────┐
+              │       Pod            │
+              │                      │
+              │ APP_ENV=production   │ ← ConfigMap
+              │ PORT=3000            │ ← ConfigMap
+              └──────────────────────┘
+```
+
+The same image can therefore be deployed across all environments without modification:
+
+```
+                  Same Image
+               node-app:1.0
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+     Dev Pod      QA Pod       Prod Pod
+        │            │            │
+     ConfigMap    ConfigMap    ConfigMap
+     APP_ENV=dev  APP_ENV=qa   APP_ENV=production
+     PORT=3000    PORT=3000    PORT=3000
+```
+
+This is the **immutable container image** principle: build once, configure at deployment time.
+
+### ConfigMap vs Secret
+
+ConfigMap is for **non-sensitive** configuration only.
+
+```
+ConfigMap               Secret
+─────────────────       ──────────────────────
+APP_ENV                 DB_PASSWORD
+PORT                    API_KEY
+LOG_LEVEL               JWT_SECRET
+API_BASE_URL            TLS_CERT
+FEATURE_FLAG            OAUTH_CLIENT_SECRET
+```
+
+For sensitive values, use a Kubernetes `Secret` instead — it stores values base64-encoded and integrates with RBAC and encryption-at-rest.
+
+The enterprise mental model:
+
+```
+Docker Image
+    │
+    │  application + dependencies
+    ▼
+ Kubernetes Pod
+    │
+    ├── ConfigMap ──→ non-sensitive configuration
+    │
+    └── Secret ─────→ sensitive configuration
+```
+
+### Useful commands
+
+```bash
+# Apply the ConfigMap
+kubectl apply -f configmap.yaml
+
+# List all ConfigMaps in the current namespace
+kubectl get configmap
+
+# Inspect the contents of this ConfigMap
+kubectl describe configmap node-app-config
+
+# Delete the ConfigMap
+kubectl delete configmap node-app-config
+```
+
+---
+
+## Kubernetes and Docker — Do They Have to Work Together?
+
+No. Kubernetes can work without Docker Engine being installed on the cluster nodes.
+
+### How Kubernetes talks to container runtimes
+
+Modern Kubernetes uses the **CRI (Container Runtime Interface)** to communicate with container runtimes — it is an abstraction layer, not a hard dependency on Docker:
+
+```
+                    Kubernetes
+                         │
+                Container Runtime
+                    via CRI
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+          containerd                CRI-O
+```
+
+Historically, Docker was the common path:
+
+```
+Kubernetes
+    │
+    ▼
+Docker
+    │
+    ▼
+Container
+```
+
+Starting with **Kubernetes 1.24**, the built-in Docker integration (`dockershim`) was removed. Modern clusters use **containerd** or **CRI-O** as the container runtime instead of Docker Engine.
+
+---
+
+### What happens to your Docker image?
+
+This is the important distinction for this project. You can still **build** your application image with Docker and then **run** it on Kubernetes using containerd or CRI-O, because all three speak the same standard: **OCI (Open Container Initiative)**.
+
+```
+Developer Machine
+
+Dockerfile
+    ↓
+docker build
+    ↓
+Container image (OCI-compatible)
+    ↓
+Container Registry
+(Docker Hub / ECR / ACR)
+    │
+    ▼
+Kubernetes
+    │
+    ▼
+containerd / CRI-O
+    │
+    ▼
+Node.js container
+```
+
+Docker and Kubernetes are therefore **not mutually exclusive** — Docker is a build and packaging tool; Kubernetes is an orchestration platform.
+
+---
+
+### Managed cloud Kubernetes (EKS / AKS / GKE)
+
+The same applies on managed services. For example:
+
+```
+AWS                              Azure
+ │                                │
+ └── EKS                          └── AKS
+      │                                │
+      └── Kubernetes                   └── Kubernetes
+           │                                │
+           └── containerd                   └── containerd
+                │                                │
+                └── Your Node.js container       └── Your Node.js container
+```
+
+Docker Engine is not installed on those nodes — containerd handles image pulls and container lifecycle directly.
+
+---
+
+### Terminology note
+
+The informal phrase *"Kubernetes runs Docker containers"* is still widely used but is imprecise today. A more accurate statement is:
+
+> Kubernetes runs **OCI-compatible container images** through a **CRI-compatible container runtime** such as containerd or CRI-O.
+
+Your `node-app` image can be built with Docker, pushed to Docker Hub/ECR/ACR, and then pulled and run by Kubernetes — without Docker Engine being present on the Kubernetes nodes.
+
+---
+
+### Mental model
+
+| Layer | Tool | Role |
+|---|---|---|
+| Build | Docker (`docker build`) | Packages app + dependencies into an OCI image |
+| Distribute | Registry (Docker Hub, ECR, ACR) | Stores and serves the image |
+| Orchestrate | Kubernetes | Schedules and manages Pods |
+| Run | containerd / CRI-O (via CRI) | Pulls the image and runs containers |
 
 ---
 
