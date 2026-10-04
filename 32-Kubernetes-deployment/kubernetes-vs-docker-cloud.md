@@ -243,6 +243,34 @@ Scaling behaviour:
 | Very high | Scale up to 15 Pods |
 | Decreasing | Scale back down to 5 Pods |
 
+
+Visual flow:
+```
+                    Traffic increases
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │     HPA     │
+                    └──────┬──────┘
+                           │
+             ┌─────────────┼─────────────┐
+             ▼             ▼             ▼
+        Low traffic    High traffic   Very high
+             │             │             │
+             ▼             ▼             ▼
+          3 Pods         8 Pods         15 Pods
+             ▲                            │
+             │                            │
+             └────── traffic decreases ──┘
+                           │
+                           ▼
+                         5 Pods
+```
+One important correction: HPA doesn't directly understand "10,000 requests/sec" unless you configure an appropriate metric. By default, it commonly scales using CPU/memory metrics; with custom or external metrics, it can scale based on things such as request rate.
+
+So the production idea is:
+> Kubernetes HPA continuously compares the desired metric with the current metric and adjusts the number of Pod replicas within the configured minimum and maximum.
+
 > **Note:** `replicas: 3` alone is not autoscaling. You need a separate
 > `HorizontalPodAutoscaler` manifest — see [`README.md`](README.md#factor-4--horizontal-pod-autoscaler-hpa--let-kubernetes-decide) for an example.
 
@@ -277,12 +305,41 @@ AWS / Azure worker node
 └──────────────────────────────┘
 ```
 
+### Simple example
+```
+resources:
+  requests:
+    cpu: "100m"
+    memory: "64Mi"
+  limits:
+    cpu: "250m"
+    memory: "128Mi"
+```
+
+### Think of it as:
+```
+              Pod
+               │
+       ┌───────┴────────┐
+       │                │
+    REQUEST            LIMIT
+       │                │
+       ▼                ▼
+   CPU: 100m        CPU: 250m
+   RAM: 64Mi        RAM: 128Mi
+       │                │
+       ▼                ▼
+ Scheduler          Runtime
+ "Where can          "How much
+  I place it?"        can it use?"
+```
+
 ### The solution
 
 | Field | Role |
 |---|---|
-| `requests` | Resources Kubernetes **reserves** at scheduling time — determines which node the Pod can fit on |
-| `limits` | Maximum the container may **consume** — enforced at runtime; excess CPU is throttled, excess memory triggers OOM kill |
+| `requests` | Resources Kubernetes **reserves** at scheduling time — determines which node the Pod can fit on. The minimum resource amount Kubernetes uses for scheduling. The scheduler chooses a node with enough available requested CPU/memory for the Pod. |
+| `limits` | Maximum the container may **consume** — enforced at runtime; excess CPU is throttled, excess memory triggers OOM kill. The maximum resource amount allowed at runtime. CPU usage above the limit is throttled; memory usage above the limit can cause the container to be OOM-killed. |
 
 This becomes critical when tens of applications share the same Kubernetes worker nodes on EKS or AKS.
 
