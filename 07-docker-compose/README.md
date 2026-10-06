@@ -93,6 +93,289 @@ docker compose down -v
 ---
 
 ## Basic Docker Compose lifecycle
+### docker-compose.yml
+```
+version: "3.8"
+services:
+  mongodb:
+    image: 'mongo'
+    volumes: 
+      - data:/data/db
+    # environment: 
+    #   MONGO_INITDB_ROOT_USERNAME: max
+    #   MONGO_INITDB_ROOT_PASSWORD: secret
+      # - MONGO_INITDB_ROOT_USERNAME=max
+    env_file: 
+      - ./env/mongo.env
+  backend:
+    build: ./backend
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
+    #   args:
+    #     some-arg: 1
+    ports:
+      - '80:80'
+    volumes: 
+      - logs:/app/logs
+      - ./backend:/app
+      - /app/node_modules
+    env_file: 
+      - ./env/backend.env
+    depends_on:
+      - mongodb
+  frontend:
+    build: ./frontend
+    ports: 
+      - '3000:3000'
+    volumes: 
+      - ./frontend/src:/app/src
+    stdin_open: true
+    tty: true
+    depends_on: 
+      - backend
+
+volumes: 
+  data:
+  logs:
+```
+
+#### image vs build
+Instead of:
+```
+backend:
+  image: goals-node
+```
+you can tell Compose how to build the image:
+```
+backend:
+  build: ./backend
+```
+Compose then:
+```
+docker-compose.yml
+       │
+       │ build: ./backend
+       ▼
+   backend/
+      └── Dockerfile
+           │
+           ▼
+     Backend Image
+           │
+           ▼
+   Backend Container
+```
+Compose looks inside ./backend for Dockerfile and builds the image from it.    Pasted markdown
+
+#### build has a longer form
+You can also write:
+```
+backend:
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+```
+context tells Docker which directory is available to the Docker build, while dockerfile tells it which Dockerfile to use. 
+
+This distinction is important:
+```
+context
+   ↓
+folder available to Docker build
+   │
+   ├── Dockerfile
+   ├── package.json
+   ├── source files
+   └── anything Dockerfile needs to COPY
+```
+For example, if your Dockerfile says:
+```
+COPY something /app/something
+```
+then something must be inside the build context.
+
+#### ports
+Instead of:
+```
+docker run -p 80:80 ...
+```
+Compose uses:
+```
+backend:
+  ports:
+    - "80:80"
+```
+Meaning:
+```
+HOST                         CONTAINER
+┌──────────────┐             ┌──────────────┐
+│ localhost:80 │ ──────────► │ backend:80   │
+└──────────────┘             └──────────────┘
+```
+The first 80 is the host port and the second 80 is the container port.
+
+#### Network
+You don't necessarily need to configure a network manually. Compose automatically creates a default network and puts the Compose services on it. 
+
+For example:
+```
+             Compose default network
+                     │
+          ┌──────────┴──────────┐
+          │                     │
+     backend                mongodb
+     :80                       :27017
+```
+
+#### Volumes
+The backend has three different types of mounts in this example:
+```
+backend container
+       │
+       ├── Named volume
+       │      └── logs:/app/logs
+       │
+       ├── Bind mount
+       │      └── ./backend:/app
+       │
+       └── Anonymous volume
+              └── /app/node_modules
+```
+
+**The important distinction:**
+
+| Type | Compose syntax | Top-level `volumes:` required? |
+|---|---|---|
+| Named volume | `logs:/app/logs` | **Yes** |
+| Bind mount | `./backend:/app` | No |
+| Anonymous volume | `/app/node_modules` | No |
+
+the bind mount can use a relative path, unlike the longer absolute path commonly used with docker run.
+
+#### env_file
+Instead of putting credentials directly into the Compose YAML:
+```
+backend:
+  environment:
+    MONGODB_USERNAME: max
+    MONGODB_PASSWORD: secret
+```
+the example uses:
+```
+backend:
+  env_file:
+    - ./env/backend.env
+```
+And:
+```
+env/backend.env
+
+MONGODB_USERNAME=max
+MONGODB_PASSWORD=secret
+```
+Compose makes those variables available inside the backend container.
+
+#### depends_on — very important
+This is one of the most useful Compose concepts.
+```
+backend:
+  depends_on:
+    - mongodb
+```
+It expresses:
+```
+MongoDB
+   │
+   │ start first
+   ▼
+Backend
+```
+because the backend needs MongoDB to connect to it. 
+
+However, one subtle point is worth remembering:
+> depends_on expresses startup dependency/order; it does not by itself guarantee that MongoDB is fully ready to accept connections.
+> For production-style Compose configurations, health checks plus appropriate application retry logic are often used when readiness matters.
+
+#### The most important concept: service name ≠ container name
+This part of the transcript is particularly important.
+You define:
+```
+services:
+  mongodb:
+    ...
+
+  backend:
+    ...
+```
+Docker Compose may create containers with names such as:
+```
+docker-complete_backend_1
+docker-complete_mongodb_1
+```
+But inside the Compose network, your application can still connect using:
+```
+mongodb
+```
+For example:
+```
+mongodb://mongodb:27017
+```
+
+**Why?**    
+Because:
+```
+docker-compose.yml
+```
+services:
+```
+    mongodb
+       │
+       │ service name
+       ▼
+Docker Compose network DNS
+       │
+       ▼
+mongodb → MongoDB container
+```
+The transcript explicitly emphasizes that the service names (mongodb, backend) can be used by the application for network communication even though Compose generates longer container names.
+
+#### The complete mental model
+```
+                 docker compose up -d
+                          │
+                          ▼
+                 docker-compose.yml
+                          │
+          ┌───────────────┼────────────────┐
+          ▼               ▼                ▼
+       mongodb          backend          network
+          │               │
+          │               │ build: ./backend
+          │               ▼
+          │          Dockerfile
+          │               │
+          │               ▼
+          │          Backend Image
+          │               │
+          └───────┬───────┘
+                  ▼
+             Containers
+                  │
+                  ▼
+        Compose default network
+                  │
+          ┌───────┴────────┐
+          ▼                ▼
+       mongodb           backend
+          ▲                │
+          │                │
+          └────── network ─┘
+```
+So the progression you're learning is:
+- docker run → manually create each container
+- docker compose → describe the entire multi-container application in YAML and let Compose build, network, mount, configure, and start it together.
+
 ### 1. docker compose up
 From the directory containing compose.yaml / docker-compose.yml:
 docker compose up
