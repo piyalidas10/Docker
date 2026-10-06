@@ -261,12 +261,8 @@ docker compose down -v
 ```
 For a database, be careful with -v.
 
-### 6. One correction to the transcript
+### 6. One correction
 
-**The transcript says:**
-> **docker-compose up for building and pulling all the images**
-
-**That's broadly correct, but more precisely:**
 - If a service has build:, Compose builds its image when needed.
 - If a service has image:, Compose can pull the image when it isn't available locally (depending on pull/build configuration).
 - Then Compose creates/starts the containers.
