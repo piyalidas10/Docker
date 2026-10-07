@@ -544,7 +544,139 @@ docker compose down -v
 ```
 For a database, be careful with -v.
 
-### 6. One correction
+### 6. docker compose up --build
+**Normally:**
+```
+docker compose up
+```
+If the backend image already exists locally, Compose can reuse it.
+
+**If you changed your backend code and want to force the custom image to be rebuilt:**
+```
+docker compose up --build
+```
+
+**Think of it as:**
+```
+docker compose up
+       │
+       ├── Image exists? ──► reuse it
+       │
+       └── Image missing? ─► build it
+
+
+docker compose up --build
+       │
+       └── force rebuild of build-based images
+```
+The transcript specifically describes --build as forcing images to be rebuilt.
+
+### 7. docker compose build
+**There is another distinction:**
+```
+docker compose build
+```
+This only builds the images. It does not start the containers.
+
+**For example:**
+```
+docker compose build
+       │
+       ▼
+Dockerfile
+       │
+       ▼
+Backend image
+       │
+       X
+   No container started
+```
+
+**Whereas:**
+```
+docker compose up
+```
+does the required build/pull work and then starts the services.
+
+**So:**
+
+| Command | Build | Start containers |
+|---|---:|---:|
+| `docker compose build` | ✅ | ❌ |
+| `docker compose up` | If needed | ✅ |
+| `docker compose up --build` | Force build | ✅ |
+
+### Very important: service name vs container name
+**Suppose your Compose file contains:**
+```
+services:
+  mongodb:
+    image: mongo
+
+  backend:
+    build: ./backend
+
+  frontend:
+    build: ./frontend
+```
+
+**These are service names:**
+```
+mongodb
+backend
+frontend
+```
+They are not necessarily the actual container names.
+
+**Compose can generate container names such as:**
+```
+docker-complete_mongodb_1
+docker-complete_backend_1
+docker-complete_frontend_1
+```
+The pattern described in the transcript is essentially:
+<project/folder>_<service>_<number>
+
+**For example:**
+```
+docker-complete_backend_1
+       │          │      │
+       │          │      └── instance number
+       │          └───────── service name
+       └──────────────────── project name
+```
+
+### Why is the service name still important?
+**Your Node backend can connect to MongoDB using:**
+```
+mongodb
+```
+rather than:
+```
+docker-complete_mongodb_1
+```
+
+**Because Compose's network knows the service name.**
+```
+                 Docker Compose network
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+      backend                        mongodb
+          │                             │
+          │──── connect to ────────────►│
+          │       "mongodb"             │
+          │                             │
+          ▼                             ▼
+docker-complete_backend_1    docker-complete_mongodb_1
+       actual container              actual container
+```
+
+**So:**
+- Service name = application/network identity
+- Container name = actual Docker container's name
+
+### One correction
 
 - If a service has build:, Compose builds its image when needed.
 - If a service has image:, Compose can pull the image when it isn't available locally (depending on pull/build configuration).
