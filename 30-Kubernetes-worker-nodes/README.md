@@ -98,12 +98,73 @@ If you use a cloud provider like **AWS**, services such as **Amazon EKS** will:
 
 You do **not** have to configure individual machines manually. You just need to understand what is happening under the hood so you know what your configuration is doing.
 
+---
+
+
+## Can run many containers inside a Kubernetes Worker Node ?
+Yes, absolutely! You can run many containers inside a Kubernetes Worker Node. That's one of the main purposes of a Worker Node.
+Think of a Worker Node as a computer with a certain amount of CPU, RAM, and storage. It can run multiple containers based on different Docker images simultaneously, as long as it has sufficient resources.
+
+### 1. How multiple containers run inside a Worker Node
+
+For example, consider a banking application running in Kubernetes.
+
+
+All four containers can run simultaneously on the same Worker Node.
+
+### 2. How this works in Kubernetes
+
+### 3. Is there a limit to how many containers can run?
+Yes. You cannot run unlimited containers on one Worker Node.
+
+**The practical limit depends on:**
+- **CPU**: How much processing power each application needs.
+- **RAM**: How much memory each container consumes.
+- **Node configuration**: Kubernetes limits and the maximum number of Pods supported by the node.
+- **Workload**: Some applications require far more resources than others.
+When a node runs out of available resources, Kubernetes may schedule new Pods on another Worker Node in the cluster.
+
+### 4. How does this relate to Docker?
+**On your development machine, you might run:**
+```
+docker run -d --name frontend nginx
+docker run -d --name backend node-api
+docker run -d --name auth python-auth
+```
+
+These commands run three containers on the same machine, assuming the images and commands are valid.
+In Kubernetes, you normally define the desired Pods in configuration files. The Kubernetes scheduler selects suitable Worker Nodes, and the kubelet and container runtime arrange for the containers to run.
+
+**Remember this hierarchy:**
+
+## Kubernetes Hierarchy
+
+```text
+Kubernetes Cluster
+└── Worker Node 1
+    ├── Pod 1
+    │   ├── Container 1
+    │   └── Container 2 (optional)
+    ├── Pod 2
+    │   └── Container 1
+    ├── Pod 3
+    │   ├── Container 1
+    │   └── Container 2 (optional)
+    └── Pod 4
+        └── Container 1
+```
+
+> [!NOTE]
+> Key takeaway: One Kubernetes cluster can have multiple Worker Nodes, and each Worker Node can run multiple Pods containing multiple containers. Kubernetes distributes workloads across the available nodes based on scheduling rules and resource requirements.
+
+
+
+
+---
 
 ## Why Can't You Put All 4 Containers in One Pod? (Frontend, Banking API, Authentication, Background Worker)
 
 You **can** technically put all 4 containers inside one Pod — Kubernetes allows it. But for an enterprise banking application, separate Pods per service is the standard approach. The reason comes down to how Kubernetes uses the Pod as its fundamental unit of **deployment, scaling, and scheduling**.
-
----
 
 ### Option A — All 4 containers in one Pod
 
