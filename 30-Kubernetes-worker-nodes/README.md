@@ -181,18 +181,39 @@ In Kubernetes, you normally define the desired Pods in configuration files. The 
 
 **Remember this hierarchy:**
 
-```mermaid
-graph TD
-    A[Kubernetes Cluster] --> B[Worker Node 1]
-    B --> C[Multiple Pods]
-    C --> D[One or more containers per Pod]
+<div style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-sizing: border-box; padding: 16px; background-color: #fcfcfc; border: 1px solid #eaeaea; border-radius: 8px;">
 
-    %% Styling to mimic the image cards
-    style A fill:#f5f5f5,stroke:#dcdcdc,stroke-width:1px,color:#333,rx:5px,ry:5px
-    style B fill:#f5f5f5,stroke:#dcdcdc,stroke-width:1px,color:#333,rx:5px,ry:5px
-    style C fill:#ffffff,stroke:none,stroke-width:0px,color:#333
-    style D fill:#f5f5f5,stroke:#dcdcdc,stroke-width:1px,color:#333,rx:5px,ry:5px
-```
+    <!-- Level 1: Cluster -->
+    <div style="width: 100%; background-color: #f7f7f7; border: 1px solid #e1e1e1; border-radius: 6px; padding: 18px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
+        Kubernetes Cluster
+    </div>
+    
+    <!-- Arrow 1 -->
+    <div style="color: #888; font-size: 16px; margin: -2px 0;">↓</div>
+    
+    <!-- Level 2: Worker Node -->
+    <div style="width: 100%; background-color: #f7f7f7; border: 1px solid #e1e1e1; border-radius: 6px; padding: 18px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
+        Worker Node 1
+    </div>
+    
+    <!-- Arrow 2 -->
+    <div style="color: #888; font-size: 16px; margin: -2px 0;">↓</div>
+    
+    <!-- Level 3: Multiple Pods -->
+    <div style="width: 100%; padding: 14px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
+        Multiple Pods
+    </div>
+    
+    <!-- Arrow 3 -->
+    <div style="color: #888; font-size: 16px; margin: -2px 0;">↓</div>
+    
+    <!-- Level 4: Containers -->
+    <div style="width: 100%; background-color: #f7f7f7; border: 1px solid #e1e1e1; border-radius: 6px; padding: 18px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
+        One or more containers per Pod
+    </div>
+
+</div>
+
 
 
 ## Kubernetes Hierarchy
