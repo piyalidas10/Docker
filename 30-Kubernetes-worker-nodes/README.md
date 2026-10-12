@@ -173,9 +173,9 @@ Multiple containers per Pod are appropriate when they are **tightly coupled** an
 
 | Sidecar use case | Description |
 |---|---|
-| **App + logging sidecar** | <img src="./imgs/Application + logging sidecar.jpg" width="90%" /> <br/> The sidecar collects or ships logs from the main app container |
-| **App + proxy sidecar** | <img src="./imgs/Application + proxy sidecar.jpg" width="90%" /> <br/> A proxy (e.g. Envoy) handles traffic routing or mTLS on behalf of the app |
-| **App + config helper** | <img src="./imgs/Application + helper container.jpg" width="90%" /> <br/> An init or helper container writes shared config files before the main app starts |
+| **App + logging sidecar** | <img src="./imgs/Application + logging sidecar.jpg" width="70%" /> <br/> The sidecar collects or ships logs from the main app container |
+| **App + proxy sidecar** | <img src="./imgs/Application + proxy sidecar.jpg" width="70%" /> <br/> A proxy (e.g. Envoy) handles traffic routing or mTLS on behalf of the app |
+| **App + config helper** | <img src="./imgs/Application + helper container.jpg" width="70%" /> <br/> An init or helper container writes shared config files before the main app starts |
 
 Sidecar containers share the Pod's **network namespace** (communicate via `localhost`), share **mounted volumes**, and share the Pod **lifecycle** — which is exactly why they belong together.
 
