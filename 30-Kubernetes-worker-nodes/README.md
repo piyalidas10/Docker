@@ -139,19 +139,40 @@ In Kubernetes, you normally define the desired Pods in configuration files. The 
 
 ## Kubernetes Hierarchy
 
-```text
-Kubernetes Cluster
-└── Worker Node 1
-    ├── Pod 1
-    │   ├── Container 1
-    │   └── Container 2 (optional)
-    ├── Pod 2
-    │   └── Container 1
-    ├── Pod 3
-    │   ├── Container 1
-    │   └── Container 2 (optional)
-    └── Pod 4
-        └── Container 1
+Below is the visual structure and architecture mapping of the active workloads running on the host system.
+
+```mermaid
+graph TB
+    subgraph Node ["Kubernetes Worker Node (CPU: 8 cores | RAM: 16 GB)"]
+        style Node fill:#fafafa,stroke:#333,stroke-width:2px,color:#000
+        
+        subgraph P1 ["Pod 1"]
+            direction TB
+            A1["Angular frontend"] --> C1["Container: Nginx"]
+        end
+        style P1 fill:#ffffff,stroke:#ccc,stroke-width:1px,color:#000
+
+        subgraph P2 ["Pod 2"]
+            direction TB
+            A2["Banking API"] --> C2["Container: Node.js"]
+        end
+        style P2 fill:#ffffff,stroke:#ccc,stroke-width:1px,color:#000
+
+        subgraph P3 ["Pod 3"]
+            direction TB
+            A3["Authentication"] --> C3["Container: Python"]
+        end
+        style P3 fill:#ffffff,stroke:#ccc,stroke-width:1px,color:#000
+
+        subgraph P4 ["Pod 4"]
+            direction TB
+            A4["Background worker"] --> C4["Container: Node.js"]
+        end
+        style P4 fill:#ffffff,stroke:#ccc,stroke-width:1px,color:#000
+    end
+
+    classDef podClass fill:#ffffff,stroke:#ccc,stroke-width:1px;
+    class P1,P2,P3,P4 podClass;
 ```
 
 > [!NOTE]
