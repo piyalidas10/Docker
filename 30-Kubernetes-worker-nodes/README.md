@@ -181,44 +181,34 @@ In Kubernetes, you normally define the desired Pods in configuration files. The 
 
 **Remember this hierarchy:**
 
-<div style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-sizing: border-box; padding: 16px; background-color: #fcfcfc; border: 1px solid #eaeaea; border-radius: 8px;">
+<div style="width: 100%;">
 
-    <!-- Level 1: Cluster -->
-    <div style="width: 100%; background-color: #f7f7f7; border: 1px solid #e1e1e1; border-radius: 6px; padding: 18px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
-        Kubernetes Cluster
-    </div>
-    
-    <!-- Arrow 1 -->
-    <div style="color: #888; font-size: 16px; margin: -2px 0;">↓</div>
-    
-    <!-- Level 2: Worker Node -->
-    <div style="width: 100%; background-color: #f7f7f7; border: 1px solid #e1e1e1; border-radius: 6px; padding: 18px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
-        Worker Node 1
-    </div>
-    
-    <!-- Arrow 2 -->
-    <div style="color: #888; font-size: 16px; margin: -2px 0;">↓</div>
-    
-    <!-- Level 3: Multiple Pods -->
-    <div style="width: 100%; padding: 14px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
-        Multiple Pods
-    </div>
-    
-    <!-- Arrow 3 -->
-    <div style="color: #888; font-size: 16px; margin: -2px 0;">↓</div>
-    
-    <!-- Level 4: Containers -->
-    <div style="width: 100%; background-color: #f7f7f7; border: 1px solid #e1e1e1; border-radius: 6px; padding: 18px 0; text-align: center; color: #222; font-size: 15px; font-weight: 400; box-sizing: border-box;">
-        One or more containers per Pod
-    </div>
+```mermaid
+graph TD
+    %% Define Nodes with labels
+    A[Kubernetes Cluster] --> Arrow1[ ]
+    Arrow1 --> B[Worker Node 1]
+    B --> Arrow2[ ]
+    Arrow2 --> C[Multiple Pods]
+    C --> Arrow3[ ]
+    Arrow3 --> D[One or more containers per Pod]
+
+    %% Structural Links and Arrows Styling
+    linkStyle 0,1,2,3,4,5 stroke:#888,stroke-width:1px;
+
+    %% Node Element Box Styling to match the image layout
+    style A fill:#f7f7f7,stroke:#e1e1e1,stroke-width:1px,color:#222,rx:6px,ry:6px;
+    style B fill:#f7f7f7,stroke:#e1e1e1,stroke-width:1px,color:#222,rx:6px,ry:6px;
+    style C fill:#ffffff,stroke:none,stroke-width:0px,color:#222;
+    style D fill:#f7f7f7,stroke:#e1e1e1,stroke-width:1px,color:#222,rx:6px,ry:6px;
+
+    %% Invisible helper nodes to create crisp vertical downward arrows
+    style Arrow1 fill:none,stroke:none,color:#888;
+    style Arrow2 fill:none,stroke:none,color:#888;
+    style Arrow3 fill:none,stroke:none,color:#888;
+```
 
 </div>
-
-
-
-## Kubernetes Hierarchy
-
-
 
 > [!NOTE]
 > Key takeaway: One Kubernetes cluster can have multiple Worker Nodes, and each Worker Node can run multiple Pods containing multiple containers. Kubernetes distributes workloads across the available nodes based on scheduling rules and resource requirements.
