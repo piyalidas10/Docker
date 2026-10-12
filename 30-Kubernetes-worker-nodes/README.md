@@ -179,12 +179,7 @@ docker run -d --name auth python-auth
 These commands run three containers on the same machine, assuming the images and commands are valid.
 In Kubernetes, you normally define the desired Pods in configuration files. The Kubernetes scheduler selects suitable Worker Nodes, and the kubelet and container runtime arrange for the containers to run.
 
-**Remember this hierarchy:**
-
-<div style="width: 100%;">
-
-
-## Kubernetes Hierarchy
+### Kubernetes Hierarchy
 
 ```mermaid
 flowchart TD
@@ -207,9 +202,6 @@ flowchart TD
 
 > [!NOTE]
 > Key takeaway: One Kubernetes cluster can have multiple Worker Nodes, and each Worker Node can run multiple Pods containing multiple containers. Kubernetes distributes workloads across the available nodes based on scheduling rules and resource requirements.
-
-
-
 
 ---
 
