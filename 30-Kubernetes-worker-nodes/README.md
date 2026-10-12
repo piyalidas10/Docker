@@ -183,29 +183,24 @@ In Kubernetes, you normally define the desired Pods in configuration files. The 
 
 <div style="width: 100%;">
 
+
+## Kubernetes Hierarchy
+
 ```mermaid
-graph TD
-    %% Define Nodes with labels
-    A[Kubernetes Cluster] --> Arrow1[ ]
-    Arrow1 --> B[Worker Node 1]
-    B --> Arrow2[ ]
-    Arrow2 --> C[Multiple Pods]
-    C --> Arrow3[ ]
-    Arrow3 --> D[One or more containers per Pod]
+flowchart TD
+    A["Kubernetes Cluster"]
+    B["Worker Node 1"]
+    C["Multiple Pods"]
+    D["One or more containers per Pod"]
 
-    %% Structural Links and Arrows Styling
-    linkStyle 0,1,2,3,4,5 stroke:#888,stroke-width:1px;
+    A --> B
+    B --> C
+    C --> D
 
-    %% Node Element Box Styling to match the image layout
-    style A fill:#f7f7f7,stroke:#e1e1e1,stroke-width:1px,color:#222,rx:6px,ry:6px;
-    style B fill:#f7f7f7,stroke:#e1e1e1,stroke-width:1px,color:#222,rx:6px,ry:6px;
-    style C fill:#ffffff,stroke:none,stroke-width:0px,color:#222;
-    style D fill:#f7f7f7,stroke:#e1e1e1,stroke-width:1px,color:#222,rx:6px,ry:6px;
-
-    %% Invisible helper nodes to create crisp vertical downward arrows
-    style Arrow1 fill:none,stroke:none,color:#888;
-    style Arrow2 fill:none,stroke:none,color:#888;
-    style Arrow3 fill:none,stroke:none,color:#888;
+    style A fill:#f7f7f7,stroke:#e1e1e1,color:#222
+    style B fill:#f7f7f7,stroke:#e1e1e1,color:#222
+    style C fill:#ffffff,stroke:#e1e1e1,color:#222
+    style D fill:#f7f7f7,stroke:#e1e1e1,color:#222
 ```
 
 </div>
