@@ -109,36 +109,6 @@ Think of a Worker Node as a computer with a certain amount of CPU, RAM, and stor
 
 For example, consider a banking application running in Kubernetes.
 
-
-All four containers can run simultaneously on the same Worker Node.
-
-### 2. How this works in Kubernetes
-
-### 3. Is there a limit to how many containers can run?
-Yes. You cannot run unlimited containers on one Worker Node.
-
-**The practical limit depends on:**
-- **CPU**: How much processing power each application needs.
-- **RAM**: How much memory each container consumes.
-- **Node configuration**: Kubernetes limits and the maximum number of Pods supported by the node.
-- **Workload**: Some applications require far more resources than others.
-When a node runs out of available resources, Kubernetes may schedule new Pods on another Worker Node in the cluster.
-
-### 4. How does this relate to Docker?
-**On your development machine, you might run:**
-```
-docker run -d --name frontend nginx
-docker run -d --name backend node-api
-docker run -d --name auth python-auth
-```
-
-These commands run three containers on the same machine, assuming the images and commands are valid.
-In Kubernetes, you normally define the desired Pods in configuration files. The Kubernetes scheduler selects suitable Worker Nodes, and the kubelet and container runtime arrange for the containers to run.
-
-**Remember this hierarchy:**
-
-## Kubernetes Hierarchy
-
 Below is the visual structure and architecture mapping of the active workloads running on the host system.
 
 ```mermaid
@@ -174,6 +144,60 @@ graph TB
     classDef podClass fill:#ffffff,stroke:#ccc,stroke-width:1px;
     class P1,P2,P3,P4 podClass;
 ```
+
+All four containers can run simultaneously on the same Worker Node.
+
+### 2. How this works in Kubernetes
+
+| Component | Responsibility |
+| :--- | :--- |
+| **Worker Node** | The machine providing CPU, memory, and other resources |
+| **Pod** | The Kubernetes unit that hosts one or more containers |
+| **Container** | Runs an application or process using a container image |
+| **Kubelet** | Ensures the Pods assigned to the node are running |
+| **Container runtime** | Runs the containers, typically using containerd or CRI-O |
+
+
+### 3. Is there a limit to how many containers can run?
+Yes. You cannot run unlimited containers on one Worker Node.
+
+**The practical limit depends on:**
+- **CPU**: How much processing power each application needs.
+- **RAM**: How much memory each container consumes.
+- **Node configuration**: Kubernetes limits and the maximum number of Pods supported by the node.
+- **Workload**: Some applications require far more resources than others.
+When a node runs out of available resources, Kubernetes may schedule new Pods on another Worker Node in the cluster.
+
+### 4. How does this relate to Docker?
+**On your development machine, you might run:**
+```
+docker run -d --name frontend nginx
+docker run -d --name backend node-api
+docker run -d --name auth python-auth
+```
+
+These commands run three containers on the same machine, assuming the images and commands are valid.
+In Kubernetes, you normally define the desired Pods in configuration files. The Kubernetes scheduler selects suitable Worker Nodes, and the kubelet and container runtime arrange for the containers to run.
+
+**Remember this hierarchy:**
+
+```mermaid
+graph TD
+    A[Kubernetes Cluster] --> B[Worker Node 1]
+    B --> C[Multiple Pods]
+    C --> D[One or more containers per Pod]
+
+    %% Styling to mimic the image cards
+    style A fill:#f5f5f5,stroke:#dcdcdc,stroke-width:1px,color:#333,rx:5px,ry:5px
+    style B fill:#f5f5f5,stroke:#dcdcdc,stroke-width:1px,color:#333,rx:5px,ry:5px
+    style C fill:#ffffff,stroke:none,stroke-width:0px,color:#333
+    style D fill:#f5f5f5,stroke:#dcdcdc,stroke-width:1px,color:#333,rx:5px,ry:5px
+```
+
+
+## Kubernetes Hierarchy
+
+
 
 > [!NOTE]
 > Key takeaway: One Kubernetes cluster can have multiple Worker Nodes, and each Worker Node can run multiple Pods containing multiple containers. Kubernetes distributes workloads across the available nodes based on scheduling rules and resource requirements.
