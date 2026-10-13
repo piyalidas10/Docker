@@ -8,6 +8,8 @@ The examples below use an enterprise banking application.
 
 Imagine you want to deploy a banking frontend, backend API, and payment service using Kubernetes. Before Kubernetes can schedule your Pods, you need infrastructure on which Kubernetes can run.
 
+### Diagram 1
+
 ```mermaid
 flowchart LR
     A["<b>1. Infrastructure provisioning</b><br/>Create physical machines or virtual machines (VMs)"]
@@ -21,6 +23,8 @@ flowchart LR
     I["<b>9. Operate and maintain</b><br/>Monitor, scale, patch, back up, and upgrade the cluster"]
     A --> B --> C --> D --> E --> F --> G --> H --> I
 ```
+
+### Diagram 2
 
 ```mermaid
 flowchart TB
