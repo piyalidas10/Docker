@@ -57,10 +57,10 @@ The key point of the lecture: **Infrastructure as Code (IaC)** and **managed Kub
 
 | Tool / approach | Role | What it does |
 |---|---|---|
-| <img src="https://images.openai.com/static-rsc-4/OucbJVc5Wo3qkMjQpVLN8cyoIzDg_fzgQhKKnyHAtxsnLxmFoh-07NJ7FNrSE8L-Gc7cqdWocCFyXEkOGNEPDbLJmNgfYnoCn2PO5n9Lc4bqmhw56ZfvqCZUFdGMTVHmUznMotvubtPIrJUJ7hZ1kBF5LIPiZ73Mifpnt24fObw?purpose=inline" width="75px" /> **Terraform** | Infrastructure provisioning | Define EC2 instances, networks, IAM permissions, EKS clusters, load balancers, and storage as code instead of creating them manually. |
-| **Amazon EKS** | Managed Kubernetes | AWS manages the Kubernetes control plane, reducing the operational work required to run a cluster. |
-| **Helm / Kubernetes manifests** | Application deployment | Define Deployments, Services, resource requests, limits, and scaling rules declaratively. |
-| **CI/CD pipeline** | Automated delivery | Build and test the application, publish the container image, and deploy the updated version to Kubernetes. |
+| <img src="https://images.openai.com/static-rsc-4/OucbJVc5Wo3qkMjQpVLN8cyoIzDg_fzgQhKKnyHAtxsnLxmFoh-07NJ7FNrSE8L-Gc7cqdWocCFyXEkOGNEPDbLJmNgfYnoCn2PO5n9Lc4bqmhw56ZfvqCZUFdGMTVHmUznMotvubtPIrJUJ7hZ1kBF5LIPiZ73Mifpnt24fObw?purpose=inline" width="75px" /> <br/> **Terraform** | Infrastructure provisioning | Define EC2 instances, networks, IAM permissions, EKS clusters, load balancers, and storage as code instead of creating them manually. |
+| <img src="https://images.openai.com/static-rsc-4/Or04aWW_S6Y8QP12Tpysowjs5H9xNIfIoUsmXmvXwhfdlDyIWS0alY3VTsThAXaJg4qtUdzLyz94i6YfXPubs3qOLgJhm-TK30A0cOWV6iHv3QfWUkel7f0UY90cm-3f1HjL8goBOgC4_6of--688sUXF4gstLAhGxNnzVWd7Tk?purpose=inline" width="75px" /> <br/> **Amazon EKS** | Managed Kubernetes | AWS manages the Kubernetes control plane, reducing the operational work required to run a cluster. |
+| <img src="https://images.openai.com/static-rsc-4/TiS5laVIQvXOAr0K_9Y0qJhrF0ca-SmLHDHWhHgMf9tMxs7ASPshNahLE-LIPqyOBgffGIhWZFXuNrJOhfrBwd3j_Zkaoj_E-xqWCN5QWFuOYfJqjZvAfxSXeCC4iNGR1acOJyts-vIskAbIapKq0U99MlcJsTNjL8E2fh0qe_g?purpose=inline" width="75px" /> <br/> **Helm / Kubernetes manifests** | Application deployment | Define Deployments, Services, resource requests, limits, and scaling rules declaratively. |
+| <img src="https://images.openai.com/static-rsc-4/sePLPBbLKTTDogXXdhHYIZwXrS0oAzLVMDOla8Evt2VCbBeqb5TY_hC2VLa05QCUim_e1eZraJzxzXm_-MSaaPmnoc1u5RLtouaA96v3rvn_HE_XPMoS8KLyvdySVER7a1fpgCKSw0op0ShXc0Ve-udY8QxrSvIPPAh3-JXza2s?purpose=inline" width="75px" /> <br/> **CI/CD pipeline** | Automated delivery | Build and test the application, publish the container image, and deploy the updated version to Kubernetes. |
 
 ## 5. The enterprise banking workflow
 
