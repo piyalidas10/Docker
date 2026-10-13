@@ -209,8 +209,8 @@ flowchart TD
 
 You **can** technically put all 4 containers inside one Pod — Kubernetes allows it. But for an enterprise banking application, separate Pods per service is the standard approach. The reason comes down to how Kubernetes uses the Pod as its fundamental unit of **deployment, scaling, and scheduling**.
 
-<img src="./imgs/Kubernetes Pod Deployment Options Comparison-2.png" width="49%" />
-<img src="./imgs/Kubernetes Deployment Options Compared-3.png" width="49%" />
+<img src="./imgs/Kubernetes Pod Deployment Options Comparison-2.png" width="95%" />
+<img src="./imgs/Kubernetes Deployment Options Compared-3.png" width="95%" />
 
 ### Option A — All 4 containers in one Pod
 
