@@ -31,7 +31,7 @@ In a self-managed environment, someone must provision the machines and install o
 
 ### Option A: Self-managed Kubernetes
 
-<img src="./imgs/AutoScaling.png" width="90%" />
+<img src="./imgs/AutoScaling.png" width="60%" />
 
 Your team must manage:
 
@@ -43,7 +43,7 @@ Your team must manage:
 
 ### Option B: Amazon EKS
 
-<img src="./imgs/AWS_EKS.jpg" width="90%" />
+<img src="./imgs/AWS_EKS.jpg" width="60%" />
 
 AWS manages the Kubernetes control plane:
 
