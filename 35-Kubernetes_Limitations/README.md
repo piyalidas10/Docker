@@ -4,7 +4,7 @@ Kubernetes manages your applications and cluster resources, but it does **not** 
 
 The examples below use an enterprise banking application.
 
-## 1. What problem is the instructor describing?
+## 1. What is the problem ?
 
 Imagine you want to deploy a banking frontend, backend API, and payment service using Kubernetes. Before Kubernetes can schedule your Pods, you need infrastructure on which Kubernetes can run.
 
