@@ -9,7 +9,7 @@ A DevOps engineer or developer defined the following resource requests in the Ku
 | Authentication Pod | 1 core | 1 GiB |
 | Background Worker Pod | 1 core | 2 GiB |
 
-In a production banking application, if the Frontend Pod needs more CPU or RAM than originally requested, Kubernetes will **not** automatically increase its resource requests. The outcome depends on whether you configure Horizontal Pod Autoscaling (HPA), Vertical Pod Autoscaling (VPA), or neither.
+In a production banking application, if the **Frontend Pod needs more CPU or RAM than originally requested**, Kubernetes will **not** automatically increase its resource requests. The outcome depends on whether you configure **Horizontal Pod Autoscaling (HPA), Vertical Pod Autoscaling (VPA), or neither**.
 
 ## 7.1 What happens when the Frontend Pod needs more resources?
 
