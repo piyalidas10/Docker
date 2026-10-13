@@ -9,7 +9,7 @@ The examples below use an enterprise banking application.
 Imagine you want to deploy a banking frontend, backend API, and payment service using Kubernetes. Before Kubernetes can schedule your Pods, you need infrastructure on which Kubernetes can run.
 
 ```mermaid
-flowchart TD
+flowchart LR
     A["<b>1. Infrastructure provisioning</b><br/>Create physical machines or virtual machines (VMs)"]
     B["<b>2. Network and security setup</b><br/>Create networks, subnets, firewall rules, and access permissions"]
     C["<b>3. Prepare every machine</b><br/>Install the operating system, container runtime, and Kubernetes packages"]
