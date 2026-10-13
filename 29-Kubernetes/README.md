@@ -1,5 +1,7 @@
 # Kubernetes
 
+<img src="./Kubernetes_Architechture.png" width="100%" />
+
 ## Core Components
 
 - **Cluster**: A set of Node machines which are running the Containerized Application (Worker Nodes) or control other Nodes (Master Node)
