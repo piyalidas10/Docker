@@ -71,27 +71,29 @@ In a self-managed environment, someone must provision the machines and install o
 ## 3. AWS example: self-managed vs. managed Kubernetes
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph A["Option A: Self-managed Kubernetes"]
-        direction TB
+        direction LR
         AT["<b>Your team must manage</b>"]
-        A1["EC2 instances for control-plane nodes"]
-        A2["EC2 instances for worker nodes"]
-        A3["Kubernetes installation and upgrades"]
-        A4["Load balancers and storage"]
-        A5["Cluster security and maintenance"]
+        A1["EC2 instances for<br/>control-plane nodes"]
+        A2["EC2 instances for<br/>worker nodes"]
+        A3["Kubernetes installation<br/>and upgrades"]
+        A4["Load balancers<br/>and storage"]
+        A5["Cluster security<br/>and maintenance"]
         AT --> A1 --> A2 --> A3 --> A4 --> A5
     end
 
     subgraph B["Option B: Amazon EKS"]
-        direction TB
-        BT["<b>AWS manages the Kubernetes control plane</b>"]
+        direction LR
+        BT["<b>AWS manages the<br/>Kubernetes control plane</b>"]
         B1["API server"]
-        B2["Control-plane availability"]
-        B3["Control-plane infrastructure"]
-        BY["<b>Your team still manages</b><br/>Worker capacity, applications, access policies,<br/>and workload configuration"]
+        B2["Control-plane<br/>availability"]
+        B3["Control-plane<br/>infrastructure"]
+        BY["<b>Your team still manages</b><br/>Worker capacity, applications,<br/>access policies, and<br/>workload configuration"]
         BT --> B1 --> B2 --> B3 --> BY
     end
+
+    A ~~~ B
 ```
 
 ### Option A: Self-managed Kubernetes
