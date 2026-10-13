@@ -2,18 +2,18 @@
 
 ## What Kubernetes IS NOT
 
-• **Cloud Service Provider**: It is not a cloud provider or a service owned by one.
-• **Vendor-Locked**: It is not restricted to any specific cloud service provider.
-• **Basic Local Software**: It is not just a software package you run on a single machine.
-• **Docker Replacement**: It is not an alternative to Docker.
-• **Paid Commercial Product**: It is not a paid service.
+- **Cloud Service Provider**: It is not a cloud provider or a service owned by one.
+- **Vendor-Locked**: It is not restricted to any specific cloud service provider.
+- **Basic Local Software**: It is not just a software package you run on a single machine.
+- **Docker Replacement**: It is not an alternative to Docker.
+- **Paid Commercial Product**: It is not a paid service.
 
 ## What Kubernetes IS
 
-• **Open-Source Project**: It is a free, open-source project.
-• **Cloud-Agnostic**: It can be used seamlessly with any cloud provider.
-• **Ecosystem of Tools**: It is a comprehensive collection of architectural concepts and tools.
-• **Container Orchestrator**: It works directly with Docker and other container technologies.
+- **Open-Source Project**: It is a free, open-source project.
+- **Cloud-Agnostic**: It can be used seamlessly with any cloud provider.
+- **Ecosystem of Tools**: It is a comprehensive collection of architectural concepts and tools.
+- **Container Orchestrator**: It works directly with Docker and other container technologies.
 
 <img src="./Kubernetes_Architechture.png" width="100%" />
 
