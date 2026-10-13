@@ -11,16 +11,16 @@ Imagine you want to deploy a banking frontend, backend API, and payment service 
 ```mermaid
 flowchart TD
     A["<b>1. Infrastructure provisioning</b><br/>Create physical machines or virtual machines (VMs)"]
-    B["<b>2. Kubernetes installation and configuration</b><br/>Configure the control plane and worker nodes in a self-managed cluster"]
-    C["<b>3. Deploy the banking application</b><br/>Kubernetes schedules Pods and manages their desired state"]
-    A --> B --> C
+    B["<b>2. Network and security setup</b><br/>Create networks, subnets, firewall rules, and access permissions"]
+    C["<b>3. Prepare every machine</b><br/>Install the operating system, container runtime, and Kubernetes packages"]
+    D["<b>4. Bootstrap the control plane</b><br/>Initialise the API server, etcd, scheduler, and controller manager"]
+    E["<b>5. Join the worker nodes</b><br/>Register each worker node with the control plane"]
+    F["<b>6. Install cluster add-ons</b><br/>Pod networking, DNS, ingress, storage, and metrics"]
+    G["<b>7. Configure access and policies</b><br/>RBAC, kubeconfig, namespaces, and resource policies"]
+    H["<b>8. Deploy the banking application</b><br/>Kubernetes schedules Pods and manages their desired state"]
+    I["<b>9. Operate and maintain</b><br/>Monitor, scale, patch, back up, and upgrade the cluster"]
+    A --> B --> C --> D --> E --> F --> G --> H --> I
 ```
-
-| Step | What happens |
-|---|---|
-| **1. Infrastructure provisioning** | Create physical machines or virtual machines (VMs). |
-| **2. Kubernetes installation and configuration** | Configure the control plane and Worker Nodes in a self-managed cluster. |
-| **3. Deploy the banking application** | Kubernetes schedules Pods and manages their desired state. |
 
 In a self-managed environment, someone must provision the machines and install or configure the necessary Kubernetes components before the cluster can run workloads.
 
