@@ -8,6 +8,14 @@ The examples below use an enterprise banking application.
 
 Imagine you want to deploy a banking frontend, backend API, and payment service using Kubernetes. Before Kubernetes can schedule your Pods, you need infrastructure on which Kubernetes can run.
 
+```mermaid
+flowchart TD
+    A["<b>1. Infrastructure provisioning</b><br/>Create physical machines or virtual machines (VMs)"]
+    B["<b>2. Kubernetes installation and configuration</b><br/>Configure the control plane and worker nodes in a self-managed cluster"]
+    C["<b>3. Deploy the banking application</b><br/>Kubernetes schedules Pods and manages their desired state"]
+    A --> B --> C
+```
+
 | Step | What happens |
 |---|---|
 | **1. Infrastructure provisioning** | Create physical machines or virtual machines (VMs). |
