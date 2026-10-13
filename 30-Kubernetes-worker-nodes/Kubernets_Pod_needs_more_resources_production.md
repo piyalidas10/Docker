@@ -9,6 +9,33 @@ A DevOps engineer or developer defined the following resource requests in the Ku
 | Authentication Pod | 1 core | 1 GiB |
 | Background Worker Pod | 1 core | 2 GiB |
 
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: banking-api
+  template:
+    metadata:
+      labels:
+        app: banking-api
+    spec:
+      containers:
+        - name: banking-api
+          image: banking-api:1.0
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+```
+
 In a production banking application, if the **Frontend Pod needs more CPU or RAM than originally requested**, Kubernetes will **not** automatically increase its resource requests. The outcome depends on whether you configure **Horizontal Pod Autoscaling (HPA), Vertical Pod Autoscaling (VPA), or neither**.
 
 ## 7.1 What happens when the Frontend Pod needs more resources?
