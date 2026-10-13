@@ -130,6 +130,13 @@ Not necessarily. There are two related decisions:
 
 > **Key distinction:** The architect and engineering teams decide the requirements; the Kubernetes scheduler decides where eligible Pods run.
 
+## 6. How resource allocation actually works
+
+- **Custom requests and limits:** Each Pod (or each container inside a Pod) can be assigned specific resource requests and limits for CPU and RAM. One Pod might request `100m` of CPU and `128Mi` of RAM, while another might request 4 cores and `16Gi` of RAM.
+- **Not equal percentages:** Kubernetes does not slice a Worker Node into equal fractions for every Pod. Pods consume whatever portion of the node's capacity they explicitly request, provided the node has those free resources available.
+- **Scheduling based on demand:** The Kubernetes Scheduler places a Pod on a Worker Node by comparing the absolute amount of CPU and memory the Pod requests with what the node has free, not by dividing the node's total capacity evenly.
+- **Unconstrained Pods:** If you do not specify resource requests or limits, Pods can consume varying amounts of node resources dynamically. This can lead to uneven loads or "hotspot" nodes where one Pod uses most of the CPU or memory.
+
 ## Summary
 
 The Worker Node provides the resources. Kubernetes schedules Pods based on resource requests. CPU and RAM usage depend on each container's configuration and actual workload.
