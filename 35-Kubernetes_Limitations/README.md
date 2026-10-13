@@ -22,6 +22,35 @@ flowchart LR
     A --> B --> C --> D --> E --> F --> G --> H --> I
 ```
 
+```mermaid
+flowchart TB
+    subgraph P1["Phase 1: Prepare the infrastructure"]
+        direction LR
+        A["<b>1. Infrastructure provisioning</b><br/>Create physical machines<br/>or virtual machines (VMs)"]
+        B["<b>2. Network and security setup</b><br/>Networks, subnets, firewall rules,<br/>and access permissions"]
+        C["<b>3. Prepare every machine</b><br/>OS, container runtime,<br/>and Kubernetes packages"]
+        A --> B --> C
+    end
+
+    subgraph P2["Phase 2: Build the Kubernetes cluster"]
+        direction LR
+        D["<b>4. Bootstrap the control plane</b><br/>API server, etcd, scheduler,<br/>and controller manager"]
+        E["<b>5. Join the worker nodes</b><br/>Register each worker node<br/>with the control plane"]
+        F["<b>6. Install cluster add-ons</b><br/>Pod networking, DNS, ingress,<br/>storage, and metrics"]
+        G["<b>7. Configure access and policies</b><br/>RBAC, kubeconfig, namespaces,<br/>and resource policies"]
+        D --> E --> F --> G
+    end
+
+    subgraph P3["Phase 3: Run the banking application"]
+        direction LR
+        H["<b>8. Deploy the banking application</b><br/>Kubernetes schedules Pods and<br/>manages their desired state"]
+        I["<b>9. Operate and maintain</b><br/>Monitor, scale, patch,<br/>back up, and upgrade the cluster"]
+        H --> I
+    end
+
+    P1 --> P2 --> P3
+```
+
 In a self-managed environment, someone must provision the machines and install or configure the necessary Kubernetes components before the cluster can run workloads.
 
 ## 2. Who manages what?
@@ -36,6 +65,30 @@ In a self-managed environment, someone must provision the machines and install o
 | Configure storage and networking | Shared responsibility | Shared responsibility |
 
 ## 3. AWS example: self-managed vs. managed Kubernetes
+
+```mermaid
+flowchart LR
+    subgraph A["Option A: Self-managed Kubernetes"]
+        direction TB
+        AT["<b>Your team must manage</b>"]
+        A1["EC2 instances for control-plane nodes"]
+        A2["EC2 instances for worker nodes"]
+        A3["Kubernetes installation and upgrades"]
+        A4["Load balancers and storage"]
+        A5["Cluster security and maintenance"]
+        AT --> A1 --> A2 --> A3 --> A4 --> A5
+    end
+
+    subgraph B["Option B: Amazon EKS"]
+        direction TB
+        BT["<b>AWS manages the Kubernetes control plane</b>"]
+        B1["API server"]
+        B2["Control-plane availability"]
+        B3["Control-plane infrastructure"]
+        BY["<b>Your team still manages</b><br/>Worker capacity, applications, access policies,<br/>and workload configuration"]
+        BT --> B1 --> B2 --> B3 --> BY
+    end
+```
 
 ### Option A: Self-managed Kubernetes
 
@@ -66,6 +119,15 @@ Your team still manages worker capacity, applications, access policies, and work
 ## 4. How do we avoid all this manual work?
 
 The key point of the lecture: **Infrastructure as Code (IaC)** and **managed Kubernetes services**.
+
+```mermaid
+flowchart LR
+    T["<b>Terraform</b><br/>Infrastructure provisioning<br/>EC2 instances, networks, IAM permissions,<br/>EKS clusters, load balancers, storage as code"]
+    E["<b>Amazon EKS</b><br/>Managed Kubernetes<br/>AWS manages the control plane"]
+    H["<b>Helm / Kubernetes manifests</b><br/>Application deployment<br/>Deployments, Services, resource requests,<br/>limits, and scaling rules"]
+    C["<b>CI/CD pipeline</b><br/>Automated delivery<br/>Build, test, publish image,<br/>deploy to Kubernetes"]
+    T --> E --> H --> C
+```
 
 | Tool / approach | Role | What it does |
 |---|---|---|
