@@ -77,6 +77,62 @@ A **Worker Node** is simply a machine — a computer, an EC2 instance, for examp
 | **kubelet** | Communication service between the Worker Node and the Master Node; allows the Master Node to control and monitor Pods on this node |
 | **Proxy (kube-proxy)** | Handles incoming and outgoing network traffic; ensures only allowed traffic reaches the Pods and leaves the node |
 
+### kubelet
+Each Kubernetes worker node normally runs one kubelet service/agent. ✅    
+The kubelet runs on the worker node itself, not separately inside each Pod or application container.
+
+<img src="./imgs/kubelet_service_or_agent.png" width="90%" />
+
+**What if you have three worker nodes?**
+
+| Component              | Worker Node 1                     | Worker Node 2                         | Worker Node 3              |
+| ---------------------- | --------------------------------- | ------------------------------------- | -------------------------- |
+| Kubelet agent          | 1                                 | 1                                     | 1                          |
+| Application Pods       | Pod A, Pod B                      | Pod C, Pod D, Pod E                   | Pod F                      |
+| Total Pods             | 2                                 | 3                                     | 1                          |
+| Total Kubelet agents   | 1                                 | 1                                     | 1                          |
+| Primary responsibility | Manages Pods A and B on this node | Manages Pods C, D, and E on this node | Manages Pod F on this node |
+
+**Key point:** Each worker node typically runs one Kubelet agent, which communicates with the Kubernetes control plane and manages the Pods assigned to that node. Each node can run multiple Pods, depending on available resources and configuration.
+
+**In this example:**
+- 3 worker nodes = normally 3 kubelet agents.
+- Each kubelet manages Pods assigned to its own node.
+- The scheduler decides which eligible node should run a new Pod.
+- The container runtime, such as containerd, runs the containers; the kubelet coordinates their lifecycle.
+One important detail: the kubelet is a node-level service, not a Kubernetes Pod that you deploy for every application.
+
+**Remember:** One worker node → one kubelet agent under the normal Kubernetes architecture.
+
+### Proxy (kube-proxy)
+
+Typically, each Kubernetes worker node runs one kube-proxy instance, just like it typically runs one Kubelet agent, when the cluster uses kube-proxy.
+
+**Here is the updated table:**
+
+| Component              | Worker Node 1 | Worker Node 2       | Worker Node 3 |
+| ---------------------- | ------------- | ------------------- | ------------- |
+| Kubelet agent          | 1             | 1                   | 1             |
+| kube-proxy             | 1             | 1                   | 1             |
+| Application Pods       | Pod A, Pod B  | Pod C, Pod D, Pod E | Pod F         |
+| Total Application Pods | 2             | 3                   | 1             |
+
+**How it looks inside each worker node**
+
+<img src="./imgs/kube_proxy.png" width="90%" />
+
+**What is the difference between Kubelet and kube-proxy?**
+
+| Component         | Main Responsibility                                                                                |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| Kubelet           | Ensures Pods assigned to its worker node are running as specified.                                 |
+| kube-proxy        | Implements Kubernetes Service networking rules, directing traffic toward appropriate backend Pods. |
+| Container Runtime | Runs containers, for example through containerd or CRI-O.                                          |
+
+Important: kube-proxy is usually deployed as a DaemonSet, which aims to run one Pod on every eligible node. Some Kubernetes networking implementations replace kube-proxy with their own data plane, so it is not mandatory in every cluster.
+
+
+
 ---
 
 ## Key Characteristics
