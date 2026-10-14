@@ -96,7 +96,7 @@ flowchart TB
     A ~~~ B
 ```
 
-<img src="./imgs/AWS Kubernetes_ Self-Managed vs. EKS.png" width="90%" />
+<img src="./imgs/AWS Kubernetes_ Self-Managed vs. EKS.png" width="100%" />
 
 ### Option A: Self-managed Kubernetes
 
