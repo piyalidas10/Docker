@@ -144,6 +144,8 @@ Depending on its configuration and update mode, applying changes may require rec
 
 ## 7.4 Example: Scaling a banking Frontend
 
+<img src="./imgs/Scaling a Banking Frontend in Kubernetes.png" width="80%" />
+
 ```
 Step 1 — Incoming banking traffic increases
          More users access the banking frontend
