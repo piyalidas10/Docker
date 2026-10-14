@@ -1,4 +1,4 @@
-# What if the Frontend Pod needs more resources in production?
+# Kubernetes Pod: What if the One Pod needs more resources in Production?
 
 A DevOps engineer or developer defined the following resource requests in the Kubernetes Deployment manifest:
 
