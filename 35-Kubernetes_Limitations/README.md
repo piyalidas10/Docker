@@ -98,6 +98,8 @@ flowchart TB
 
 <img src="./imgs/AWS Kubernetes_ Self-Managed vs. EKS.png" width="100%" />
 
+<img src="./imgs/self-managed vs. managed Kubernetes.png" width="100%" />
+
 ### Option A: Self-managed Kubernetes
 
 Your team must manage:
