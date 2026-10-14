@@ -96,9 +96,9 @@ flowchart TB
     A ~~~ B
 ```
 
-### Option A: Self-managed Kubernetes
+<img src="./imgs/AWS Kubernetes_ Self-Managed vs. EKS.png" width="90%" />
 
-<img src="./imgs/AutoScaling.png" width="60%" />
+### Option A: Self-managed Kubernetes
 
 Your team must manage:
 
@@ -109,8 +109,6 @@ Your team must manage:
 - Cluster security and maintenance
 
 ### Option B: Amazon EKS
-
-<img src="./imgs/AWS_EKS.jpg" width="60%" />
 
 AWS manages the Kubernetes control plane:
 
