@@ -8,6 +8,8 @@ That is an excellent question. The answer is:
 
 > **Kubernetes automates the ongoing, complex work of running applications reliably at scale. You define the desired state of your application, and Kubernetes continuously works to maintain it.**
 
+<img src="Without vs With Kubernetes.png" width="90%"/>
+
 ---
 
 ## 1. Without Kubernetes vs. With Kubernetes
