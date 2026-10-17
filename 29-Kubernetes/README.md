@@ -112,3 +112,204 @@ The diagram below shows how all core components relate to each other inside a Ku
 3. The **kubelet** on that **Worker Node** pulls the image and starts the **Container** inside the **Pod**.
 4. A **Service** is created with a stable IP and a label selector pointing to those **Pods**.
 5. Incoming traffic hits the **Service** IP → **kube-proxy** routes it to a healthy **Pod** → the **Container** handles the request.
+
+---
+
+## What You Need to Set Up
+
+Before working with Kubernetes you need two things:
+
+1. **A Cluster** — the technical infrastructure (master node + worker nodes with all software installed)
+2. **kubectl** — your local communication tool for sending instructions to the cluster
+
+### The Cluster
+
+The cluster needs real machines (physical or virtual) with all required software installed on them. The master node may be distributed across multiple machines in production to ensure high availability — if the single master fails, the entire cluster has a problem. For local development a single master node machine is sufficient.
+
+**Master Node — required software:**
+
+| Component            | Role                                                                |
+|----------------------|---------------------------------------------------------------------|
+| API Server           | Entry point for all commands; exposes the Kubernetes API            |
+| Scheduler            | Decides which worker node a new Pod should run on                   |
+| Controller Manager   | Runs reconciliation loops to maintain desired state                 |
+| etcd                 | Distributed key-value store holding all cluster state               |
+
+**Worker Node(s) — required software:**
+
+| Component      | Role                                                                      |
+|----------------|---------------------------------------------------------------------------|
+| Docker         | Container runtime that runs your application images                       |
+| kubelet        | Agent that talks to the master node and manages Pods on the node          |
+| kube-proxy     | Manages networking rules; routes traffic between Pods and Services        |
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      REQUIRED SETUP AT A GLANCE                             │
+│                                                                             │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                          CLUSTER                                     │   │
+│   │                 (Cloud / Data Center / Local VM)                    │   │
+│   │                                                                     │   │
+│   │   ┌──────────────────────────┐   ┌────────────────────────────┐    │   │
+│   │   │       MASTER NODE        │   │      WORKER NODE(S)         │    │   │
+│   │   │  (may be distributed     │   │   (one or more machines)    │    │   │
+│   │   │   for high availability) │   │                            │    │   │
+│   │   │                          │   │   ✔ Docker                  │    │   │
+│   │   │   ✔ API Server            │   │   ✔ kubelet                 │    │   │
+│   │   │   ✔ Scheduler             │   │   ✔ kube-proxy              │    │   │
+│   │   │   ✔ Controller Manager    │   │   ✔ Container Runtime       │    │   │
+│   │   │   ✔ etcd                  │   │                            │    │   │
+│   │   └──────────────────────────┘   └────────────────────────────┘    │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                              ▲                                              │
+│                              │  sends instructions via API                  │
+│   ┌──────────────────────────┴──────────────────────────┐                  │
+│   │                YOUR LOCAL MACHINE                    │                  │
+│   │                                                     │                  │
+│   │   ✔ kubectl  (kube-control) — installed locally     │                  │
+│   └─────────────────────────────────────────────────────┘                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## kubectl — Your Communication Device
+
+`kubectl` (kube-control) is the CLI tool you install **locally on your machine** to send instructions to any Kubernetes cluster — whether it is a local minikube cluster or a cloud cluster on AWS, GCP, or Azure.
+
+> ⚠️ **Do not confuse kubectl with the API Server or the Master Node.**
+> - `kubectl` is what *gives* the commands (local tool on your machine).
+> - The **Master Node / API Server** is what *receives and executes* those commands (lives inside the cluster).
+
+### What you can do with kubectl
+
+```bash
+kubectl apply -f deployment.yaml       # Create or update resources from a YAML file
+kubectl create deployment my-app \
+  --image=my-image:v1                  # Create a new deployment
+kubectl get pods                       # List all running Pods
+kubectl get deployments                # List all Deployments
+kubectl scale deployment my-app \
+  --replicas=5                         # Scale a Deployment
+kubectl delete deployment my-app      # Delete a Deployment
+kubectl logs <pod-name>               # View logs of a Pod
+kubectl describe pod <pod-name>       # Detailed info about a Pod
+```
+
+### The Command Chain
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         HOW kubectl FITS IN                                  │
+│                                                                             │
+│   You (Developer / Admin)                                                   │
+│        │                                                                    │
+│        │  types a command                                                   │
+│        ▼                                                                    │
+│   ┌──────────────────┐                                                      │
+│   │     kubectl      │  ←── Installed locally; works with ANY cluster       │
+│   │  (kube-control)  │      minikube · AWS EKS · Google GKE · Azure AKS    │
+│   └────────┬─────────┘                                                      │
+│            │  sends API requests                                            │
+│            ▼                                                                │
+│   ┌──────────────────┐                                                      │
+│   │   API Server     │  ←── Runs on the Master Node (inside the cluster)    │
+│   │  (Master Node)   │      Receives instructions and coordinates execution │
+│   └────────┬─────────┘                                                      │
+│            │  coordinates via kubelet                                       │
+│            ▼                                                                │
+│   ┌──────────────────────────────────────────┐                              │
+│   │              Worker Nodes                │                              │
+│   │   ┌──────────┐   ┌──────────┐            │                              │
+│   │   │ Worker 1 │   │ Worker 2 │   ...      │                              │
+│   │   │  Pods    │   │  Pods    │            │                              │
+│   │   └──────────┘   └──────────┘            │                              │
+│   └──────────────────────────────────────────┘                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Analogy
+
+| Role       | Kubernetes equivalent | What it does                                              |
+|------------|-----------------------|-----------------------------------------------------------|
+| President  | **kubectl**           | Issues the command (the *what*)                           |
+| General    | **Master Node**       | Receives the order; ensures it is executed correctly      |
+| Soldiers   | **Worker Nodes**      | Carry out the actual work (run and manage Pods/containers)|
+
+---
+
+## minikube — Local Cluster for Development & Testing
+
+For learning and testing you do not need a real cloud cluster. **minikube** creates a single-node cluster inside a virtual machine on your local machine, combining the master and worker roles in one VM.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        MINIKUBE: LOCAL CLUSTER                               │
+│                                                                             │
+│   Your Physical Machine                                                     │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                                                                     │   │
+│   │   ┌─────────────────────────────────────────────────────────────┐   │   │
+│   │   │           Virtual Machine (managed by minikube)              │   │   │
+│   │   │                                                             │   │   │
+│   │   │   ┌──────────────────────────────────────────────────────┐  │   │   │
+│   │   │   │     Single-Node Kubernetes Cluster                    │  │   │   │
+│   │   │   │                                                      │  │   │   │
+│   │   │   │   Master Node + Worker Node  (combined in one VM)    │  │   │   │
+│   │   │   │                                                      │  │   │   │
+│   │   │   │   ✔ API Server  ✔ Scheduler  ✔ etcd                  │  │   │   │
+│   │   │   │   ✔ kubelet     ✔ Docker     ✔ kube-proxy            │  │   │   │
+│   │   │   └──────────────────────────────────────────────────────┘  │   │   │
+│   │   └─────────────────────────────────────────────────────────────┘   │   │
+│   │                                                                     │   │
+│   │   kubectl  ── talks to the minikube cluster exactly as it would     │   │
+│   │               talk to a real cloud cluster (same commands)          │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Property              | Value                                                          |
+|-----------------------|----------------------------------------------------------------|
+| **Purpose**           | Local Kubernetes cluster for development & testing            |
+| **Supported OS**      | Linux, macOS, Windows                                         |
+| **Cluster type**      | Single-node — master + worker combined in one VM              |
+| **Replaces kubectl?** | ❌ No — kubectl must be installed separately                  |
+| **Use in production?**| ❌ No — development/testing only                              |
+
+> minikube does **not** replace kubectl. You always need kubectl installed locally — it is the tool you use to communicate with any cluster, whether local (minikube) or cloud (AWS EKS, GKE, AKS).
+
+### Installation Summary
+
+**Two things to install (in this order):**
+
+```
+Step 1 — kubectl
+  macOS:   brew install kubectl
+  Windows: choco install kubernetes-cli
+  Linux:   https://kubernetes.io/docs/tasks/tools/
+
+Step 2 — minikube
+  macOS:   brew install minikube
+  Windows: choco install minikube
+  Linux:   https://minikube.sigs.k8s.io/docs/start/
+
+Step 3 — start and verify
+  minikube start
+  kubectl get nodes
+```
+
+### Local vs. Cloud Setup
+
+```
+┌───────────────────────────────┬─────────────────────────────────────────────┐
+│        LOCAL (minikube)       │       CLOUD (EKS / GKE / AKS)               │
+├───────────────────────────────┼─────────────────────────────────────────────┤
+│ minikube + kubectl locally    │ kubectl locally only                         │
+│ Cluster lives in a local VM   │ Cluster lives in the cloud                  │
+│ Master + worker in one VM     │ Separate, distributed cloud machines         │
+│ Single node — no HA           │ High availability by default                 │
+│ Development / testing only    │ Suitable for production                      │
+│ Same kubectl commands work    │ Same kubectl commands work                   │
+└───────────────────────────────┴─────────────────────────────────────────────┘
+```
