@@ -5,6 +5,7 @@
 Before getting hands-on with Kubernetes, there is one **critical concept** to understand: the clear split between what **you** are responsible for and what **Kubernetes** handles for you.
 
 > ⚠️ **Key Insight:** Kubernetes is an **application orchestration** tool — not a cloud infrastructure provisioning tool.
+> Kubernetes manages your containerized application, but Kubernetes itself does not automatically create all the infrastructure required to run it.
 
 ---
 
@@ -35,6 +36,8 @@ Before getting hands-on with Kubernetes, there is one **critical concept** to un
 │  • Provision storage (EFS, etc.)        │                                    │
 └─────────────────────────────────────────┴───────────────────────────────────┘
 ```
+
+<img src="./Kubernetes vs Infrastructure Responsibilities.png" width="90%" />
 
 ---
 
@@ -152,6 +155,21 @@ Since Kubernetes doesn't provision infrastructure, you need additional tools to 
 
 ---
 
+## Who does what in a real enterprise?
+
+| Responsibility                         | Typical owner or tool                                                |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| Create cloud VMs and networks          | Cloud / Infrastructure team, Terraform                               |
+| Configure server operating systems     | Infrastructure / Platform team                                       |
+| Provision Kubernetes cluster           | Platform team, managed Kubernetes service (e.g., AWS EKS)            |
+| Define Pods, Deployments and Services  | Application developers / DevOps engineers                            |
+| Set CPU and memory requests and limits | Development team, guided by platform standards and capacity planning |
+| Schedule Pods onto nodes               | Kubernetes Scheduler                                                 |
+| Restart and replace workloads          | Kubernetes controllers and kubelet                                   |
+| Monitor health and performance         | Platform and application teams using monitoring tools                |
+
+---
+
 ## Summary Flow
 
 ```
@@ -186,3 +204,5 @@ Since Kubernetes doesn't provision infrastructure, you need additional tools to 
 4. **You must prepare the nodes** — Install the API server, kubelet, kube-proxy, scheduler, etc. on master and worker nodes yourself (or use a managed service).
 5. **Managed services complete the picture** — Tools like AWS EKS, GKE, AKS, or Kubermatic bridge the gap by handling infrastructure provisioning alongside Kubernetes orchestration.
 6. **For local learning** — Set up a local Kubernetes environment (e.g., with Minikube or Docker Desktop) where both master and worker nodes run on your machine with all required software pre-installed.
+7. **Without a managed service or infrastructure automation** - You arrange the machines, networking and Kubernetes installation; Kubernetes manages your workloads afterward.
+8. **With a managed service such as AWS EKS** - AWS manages much of the Kubernetes control plane and provides infrastructure integrations. You still have responsibilities for workload configuration, permissions, capacity, networking choices and potentially worker-node management, depending on the setup.
