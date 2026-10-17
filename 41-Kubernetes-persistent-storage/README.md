@@ -526,6 +526,8 @@ Using an **enterprise banking application** as the example:
 
 ## How This Relates to Docker Storage
 
+<img src="./Docker and Kubernetes Storage Comparison.png" width="90%" />
+
 | Docker                                        | Kubernetes                                          |
 |-----------------------------------------------|-----------------------------------------------------|
 | Docker volume                                 | Persistent storage managed through the container platform |
@@ -540,6 +542,10 @@ Using an **enterprise banking application** as the example:
 ## Enterprise Example
 
 Imagine deploying four services in a banking application:
+
+For a real banking system, persistent storage is not the same as high availability or backup. A single PostgreSQL replica with a PVC can preserve data across Pod replacement, but it does not by itself protect against disk failure, accidental deletion, data corruption, or a regional outage.
+
+<img src="./Kubernetes Persistent Storage Banking Guide.png" width="90%" />
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -569,7 +575,16 @@ Imagine deploying four services in a banking application:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+| Service                | PVC typically needed? | Reason                                                                       |
+| ---------------------- | --------------------- | ---------------------------------------------------------------------------- |
+| Angular frontend       | No                    | Static assets can be served from the container image.                        |
+| Banking API            | No                    | Application instances should generally be replaceable.                       |
+| Authentication service | Depends               | Persistent storage may be needed if it owns durable sessions or other state. |
+| PostgreSQL             | Yes                   | Database files must persist beyond the Pod lifecycle.                        |
+
 **PVC for PostgreSQL:**
+
+Your PVC requests 10 GiB of storage using the fast-ssd StorageClass.
 
 ```yaml
 apiVersion: v1
@@ -585,9 +600,19 @@ spec:
   storageClassName: fast-ssd
 ```
 
+What matters:
+
+- `ReadWriteOnce` (RWO): the volume can be mounted read-write by a single node at a time. It does not necessarily mean only one Pod can access it.
+- `10Gi`: requests 10 GiB; it is not a guarantee of database capacity beyond that allocation.
+- `fast-ssd`: must refer to a StorageClass available in your Kubernetes cluster. If it does not exist, provisioning may fail.
+
 **Deployment referencing the PVC:**
 
+Your Deployment uses a PVC correctly, but for a database, a StatefulSet is often a better starting point because it provides stable Pod identity and integrates naturally with persistent storage.
+Here is your Deployment configuration, formatted as valid YAML:
+
 ```yaml
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -616,3 +641,9 @@ spec:
           persistentVolumeClaim:
             claimName: postgres-pvc
 ```
+
+Important production improvements:
+- Configure database credentials through Kubernetes Secrets or an appropriate external secrets manager.
+- Pin and maintain a supported PostgreSQL version rather than relying on an old image tag.
+- Configure readiness and liveness probes, resource requests and limits, and backup/restore procedures.
+- Consider a StatefulSet or a managed database service for production workloads.
