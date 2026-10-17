@@ -431,3 +431,188 @@ Once PVC and PV are bound, the volume is **mounted into the Pod**. The applicati
 4. **Storage Classes enable dynamic provisioning** — a PVC request automatically triggers cloud API calls to create real storage on demand.
 5. **The PV Controller binds PVCs to PVs** — this control loop runs continuously, ensuring every pending PVC finds a match.
 6. **Data outlives the Pod** — even when a Pod dies and a new one takes its place, the data on external storage remains intact and is re-attached automatically.
+
+---
+
+## Architecture at a Glance
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                  KUBERNETES PERSISTENT STORAGE — FULL PICTURE               │
+│                                                                             │
+│   Application Pod                                                           │
+│   ┌───────────────────────────────┐                                         │
+│   │  Your database or application │                                         │
+│   │  needs persistent data        │                                         │
+│   └───────────────┬───────────────┘                                         │
+│                   │  requests storage through                               │
+│                   ▼                                                         │
+│   ┌───────────────────────────────┐                                         │
+│   │  PVC — PersistentVolumeClaim  │                                         │
+│   │  The application's request    │                                         │
+│   │  for capacity and access mode │                                         │
+│   └───────────────┬───────────────┘                                         │
+│                   │  Kubernetes binds or provisions storage                 │
+│                   ▼                                                         │
+│   ┌───────────────────────────────┐                                         │
+│   │  PV — PersistentVolume        │                                         │
+│   │  Represents the storage       │                                         │
+│   │  resource available to K8s    │                                         │
+│   └───────────────┬───────────────┘                                         │
+│                   │  backed by                                              │
+│                   ▼                                                         │
+│   ┌───────────────────────────────────────────────────────────────────┐     │
+│   │           Physical or Cloud Storage                                │     │
+│   │   AWS EBS · Google Persistent Disk · Azure Disk · Azure Files     │     │
+│   └───────────────────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## What Each Component Does
+
+| Component           | Responsibility                                                                  |
+|---------------------|---------------------------------------------------------------------------------|
+| **Pod**             | Runs the application that reads and writes data                                 |
+| **PVC**             | Requests storage, such as 10 GiB with a specific access mode                   |
+| **PV**              | Represents the provisioned or pre-existing storage resource                     |
+| **StorageClass (SC)**| Defines how storage should be dynamically provisioned, including storage type  |
+| **PV Controller**   | Helps manage PV/PVC binding and related storage lifecycle operations            |
+| **External storage**| Holds the actual persistent data outside the individual Pod's container layer   |
+
+> 🔑 **Key distinction:** A **PVC is a request for storage**, not the storage itself. The PV and underlying external storage provide the resource that actually holds the data.
+
+---
+
+## What Happens When a Pod Is Deleted?
+
+Using an **enterprise banking application** as the example:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│               POD DELETION & PERSISTENT STORAGE LIFECYCLE                    │
+│                                                                             │
+│  Step 1: Application writes data                                            │
+│  ┌───────────────────────────────────────────────────────────────────┐     │
+│  │  Database Pod  →  writes files  →  mounted persistent volume      │     │
+│  └───────────────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│  Step 2: Pod crashes or is deleted                                          │
+│  ┌───────────────────────────────────────────────────────────────────┐     │
+│  │  Container filesystem may be lost  ✖                              │     │
+│  │  External persistent storage remains intact  ✔                   │     │
+│  └───────────────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│  Step 3: Kubernetes creates a replacement Pod                               │
+│  ┌───────────────────────────────────────────────────────────────────┐     │
+│  │  New Pod mounts the same PVC                                      │     │
+│  │  (when storage and scheduling requirements permit)                │     │
+│  └───────────────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│  Step 4: Application accesses its existing data                             │
+│  ┌───────────────────────────────────────────────────────────────────┐     │
+│  │  Does not start with an empty data directory  ✔                  │     │
+│  │  Provided data is intact and storage is successfully reattached   │     │
+│  └───────────────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│  ⚠ IMPORTANT: Persistent storage protects data from the Pod's lifecycle,   │
+│    but it does NOT automatically provide:                                   │
+│    • Backups           • Database replication       • Disaster recovery    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## How This Relates to Docker Storage
+
+| Docker                                        | Kubernetes                                          |
+|-----------------------------------------------|-----------------------------------------------------|
+| Docker volume                                 | Persistent storage managed through the container platform |
+| Docker Compose volume configuration           | PVC, PV, and StorageClass resources                 |
+| Container recreated while a volume persists   | Pod recreated while persistent data remains available |
+| Docker volume driver or host storage          | CSI storage drivers and supported storage backends  |
+
+> These are **related concepts** but they are **not identical implementations**.
+
+---
+
+## Enterprise Example
+
+Imagine deploying four services in a banking application:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   ENTERPRISE BANKING APPLICATION                             │
+│                                                                             │
+│   ┌──────────────────────┐   ┌──────────────────────┐                       │
+│   │  Angular Frontend    │   │    Banking API        │                       │
+│   │                      │   │                      │                       │
+│   │  Typically stateless │   │  Typically stateless │                       │
+│   │                      │   │                      │                       │
+│   │  ✖ No PVC needed     │   │  ✖ No PVC needed     │                       │
+│   │    just to run       │   │    just to run       │                       │
+│   └──────────────────────┘   └──────────────────────┘                       │
+│                                                                             │
+│   ┌──────────────────────┐   ┌──────────────────────────────────────────┐   │
+│   │  Auth Service        │   │       PostgreSQL Database                 │   │
+│   │                      │   │                                          │   │
+│   │  Often stateless     │   │  STATEFUL — requires persistent storage  │   │
+│   │  (depends on session │   │                                          │   │
+│   │   design)            │   │  ✔ PVC  →  PV  →  Cloud Storage          │   │
+│   │                      │   │                                          │   │
+│   │  ✖ No PVC typically  │   │  Data survives Pod restarts & crashes    │   │
+│   └──────────────────────┘   └──────────────────────────────────────────┘   │
+│                                                                             │
+│   The frontend and API do not need their own persistent volumes to run.    │
+│   Only stateful services like PostgreSQL need a PVC-backed PV.             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**PVC for PostgreSQL:**
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+```
+
+**Deployment referencing the PVC:**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-storage
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+```
