@@ -1,0 +1,66 @@
+# apiVersion: which Kubernetes API group/version defines this object type.
+# Deployments live in the "apps" group, version "v1".
+apiVersion: apps/v1
+# kind: the type of Kubernetes object to create (here, a Deployment that manages Pods).
+kind: Deployment
+# metadata: identifying information about the Deployment itself.
+metadata:
+  # name: unique name of this Deployment inside its namespace.
+  name: second-app-deployment
+  # labels: key/value tags attached to the Deployment (for grouping/filtering,
+  # e.g. "kubectl get deployments -l group=example"). They do not affect the Pods.
+  labels:
+    group: example
+# spec: the desired state of the Deployment.
+spec:
+  # replicas: how many identical Pod instances Kubernetes should keep running.
+  replicas: 1
+  # selector: tells the Deployment which Pods it manages.
+  # It must match the labels defined in template.metadata.labels below.
+  selector:
+    # matchLabels: select Pods that have ALL of these labels (app AND tier).
+    matchLabels:
+      app: second-app
+      tier: backend
+    # matchExpressions (commented out): a more flexible alternative to matchLabels.
+    # This example would select Pods whose "app" label is NOT second-app or first-app.
+    # matchExpressions: 
+    #   - {key: app, operator: NotIn, values: [second-app, first-app]}
+  # template: the blueprint used to create each Pod.
+  template:
+    # metadata: information attached to every Pod created from this template.
+    metadata: 
+      # labels: tags on the Pods. They must match the selector above,
+      # otherwise the Deployment cannot find and manage its own Pods.
+      labels:
+        app: second-app
+        tier: backend
+    # spec: the Pod specification (what runs inside the Pod).
+    spec: 
+      # containers: list of containers that run in the Pod.
+      containers:
+        # name: name of the container inside the Pod.
+        - name: second-node
+          # image: container image to run (repository/name:tag) pulled from Docker Hub.
+          image: academind/kub-first-app:2
+          # imagePullPolicy: when to pull the image.
+          # Always = pull from the registry every time a Pod starts,
+          # even if the image is already cached on the node.
+          imagePullPolicy: Always
+          # livenessProbe: health check Kubernetes runs regularly.
+          # If it fails, Kubernetes restarts the container.
+          livenessProbe: 
+            # httpGet: probe by sending an HTTP GET request to the container.
+            httpGet:
+              # path: URL path to request.
+              path: /
+              # port: container port to send the request to.
+              port: 8080
+            # periodSeconds: how often (in seconds) the probe runs.
+            periodSeconds: 10
+            # initialDelaySeconds: wait this long after the container starts
+            # before running the first probe (gives the app time to boot).
+            initialDelaySeconds: 5
+        # Example placeholder for adding a second container to the same Pod:
+        # - name: ...
+        #   image: ...

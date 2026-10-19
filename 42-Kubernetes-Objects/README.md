@@ -52,6 +52,162 @@
 > - A **Deployment** manages the desired number and lifecycle of stateless Pods.
 > - A **Service** gives those Pods a stable network endpoint.
 
+#### Why Do We Need a Deployment?
+
+The **Deployment** is one of the key objects you work with in Kubernetes. You typically **don't create Pods yourself** and manually move them to a worker node. Instead, you create a Deployment and give it instructions about the number of Pods and the containers it should create and manage for you. A Deployment can control one or multiple Pods, so it can create several Pods at once.
+
+**Core philosophy — desired target state:**
+
+- Under the hood a Deployment is a controller object, but for our purposes it is enough to know it is a Deployment.
+- You declare a target state (e.g. *"two Pods with this container up and running"*), and Kubernetes does whatever it takes to reach and maintain it.
+- You define **what** you want; Kubernetes figures out **how** to get there.
+
+**Advantages:**
+
+- **Automatic Pod creation and placement:** Kubernetes creates the Pods, starts the containers, and places the Pods on worker nodes with sufficient CPU and memory. You never pick a remote machine by hand.
+- **Pause, delete, and roll back:** if a change breaks the application, you don't have to rush a code fix and replace the failing Pod. Roll back to the previous working Deployment, fix the bug calmly, then start a new Deployment with the updated code and container image.
+- **Scaling:** tell Kubernetes you want more or fewer Pods at any time.
+- **Autoscaling:** set metrics such as incoming traffic or CPU utilization. When they are exceeded, Kubernetes creates more Pods (more container instances to handle requests); when load drops, the unnecessary Pods are removed again.
+
+```
+You (desired state)             Kubernetes
+───────────────────             ──────────────────────────────────────────
+Deployment: 2 Pods   ───────▶   creates Pods ─▶ starts containers ─▶ picks Worker Nodes
+                                with enough CPU / memory
+                                keeps 2 Pods running; can scale, roll back
+```
+
+> **Key takeaway:** One Deployment manages one set of Pods, but you can create multiple Deployments to have multiple Pods managed by Kubernetes. We typically don't create or manage Pods directly — we create Deployment objects and send them to the cluster.
+
+#### Why Do We Need a Service?
+
+To reach a Pod (and the container running in it), we need a **Service**. A Service is a Kubernetes object responsible for exposing Pods to other Pods in the cluster and — very importantly — to visitors **outside** the cluster (the entire world).
+
+Pods already get an internal IP address by default (visible in the dashboard), but that IP has two problems:
+
+1. **It cannot be used from outside the cluster** — so the containerized app is unreachable by external visitors.
+2. **It changes whenever a Pod is replaced** — this happens often, especially with scaling, so you cannot rely on a Pod keeping its IP. Even for cluster-internal communication, the IP is an unreliable way to find a Pod.
+
+**What a Service does:**
+
+- **Groups Pods together** and gives them a **shared, stable IP address** that does not change.
+- Multiple Pods can sit behind the Service and be reached through that one unchanging address.
+- Can expose this address **inside the cluster only** (the default) or **outside the cluster** too, so the containerized Node.js web app can be visited from the outside world.
+
+```
+Without a Service                       With a Service
+─────────────────                       ──────────────
+Outside world ──X──▶ Pod (IP changes)   Outside world ──▶ Service (stable IP) ──┬─▶ Pod 1
+Other Pods   ──?──▶ Pod (IP changes)    Other Pods   ──▶ Service (stable IP) ──┴─▶ Pod 2
+```
+
+> **Key takeaway:** Without Services, Pods are very hard to reach even internally (because of the changing IP), and containerized apps are not reachable from outside the cluster at all. The default is internal-only, but a Service lets us override that.
+
+#### Creating a Service with `kubectl expose`
+
+We can create a Service from the command line with `kubectl`. Keep the dashboard process running and open a **new terminal window** for these commands.
+
+`kubectl create` does offer a `service` subcommand, and that would work. A more convenient command for exposing the Pods created by a Deployment is **`kubectl expose`**: it creates a Service that exposes the Deployment's Pods.
+
+```bash
+kubectl expose deployment first-app --port=8080 --type=LoadBalancer
+```
+
+You tell Kubernetes you want to expose a **deployment**, give the **deployment name**, and add two important options (assign values with `=`):
+
+| Option | Meaning |
+|--------|---------|
+| `--port=8080` | The port to expose. Here it is 8080, because that is the port the containerized app listens on. |
+| `--type=...` | The type of Service, i.e. how it is exposed. |
+
+**Built-in Service types:**
+
+| Type | Behavior |
+|------|----------|
+| `ClusterIP` | The **default**. Reachable only from **inside** the cluster. You still get a stable address, but it is not enough when outside access is needed. |
+| `NodePort` | Exposes the Deployment through the **IP address of the worker node** it runs on, so it is accessible from outside. |
+| `LoadBalancer` | Uses a load balancer that must exist in the **infrastructure the cluster runs on**. It generates a **unique address** for the Service and **evenly distributes incoming traffic** across all Pods in the Service. |
+
+> **Note:** Load balancing doesn't matter with a single Pod, but it matters once you scale and run multiple Pod instances. `LoadBalancer` is only available if the cluster's infrastructure supports it. AWS does, and Minikube does too, so we can use it here.
+
+**Verify the Service was created:**
+
+```bash
+kubectl get services
+```
+
+- The `kubernetes` Service (type `ClusterIP`) is a default Service created automatically, not by us.
+- The `first-app` Service is ours. You see its type and its cluster-internal IP, which doesn't help us reach it from outside.
+- On a cloud provider you would see an **external IP**. On Minikube, `EXTERNAL-IP` always stays **`<pending>`**, because Minikube is a virtual machine on your local machine and has no public IPs of its own.
+
+**Accessing the Service on Minikube:**
+
+```bash
+minikube service first-app
+```
+
+- This Minikube-specific command **maps a special port to an IP** that is reachable from your local machine and identifies the Minikube VM.
+- It prints a table with an address and normally opens it in the browser automatically.
+- On a cloud provider that supports `LoadBalancer`, you would find an external address in `kubectl get services` and **would not need this command** (it wouldn't work there, because it is Minikube-specific).
+
+If everything worked, that address shows your running Node.js application, in a container, in a Pod, created by Kubernetes from the Deployment we sent to the cluster. The Service is what makes it viewable from outside.
+
+> **Key takeaway:** We are using the **imperative** approach here and will move away from it later. Even so, the **Pod**, **Deployment**, and **Service** are some of the most important object types we will use all the time when working with Kubernetes.
+
+#### Updating Deployments
+
+Letting Kubernetes manage Deployments is useful, and changing your code, updating the Deployment, and even rolling back are all easy.
+
+**Scenario:** you change the source code (e.g. more exclamation marks and a new paragraph) and save the file.
+
+**Step 1 — Rebuild the image (with a new tag).** The code lives in the image, so whenever the code changes the image must be rebuilt before any container, on any machine, can be updated.
+
+```bash
+docker build -t academind/kub-first-app:2 .
+```
+
+**Step 2 — Push the image to Docker Hub.** Kubernetes pulls the image from the registry, so the updated image has to be pushed first.
+
+```bash
+docker push academind/kub-first-app:2
+```
+
+**Step 3 — Update the Deployment with `kubectl set image`.** First check the Deployment still exists with `kubectl get deployments`, then run:
+
+```bash
+kubectl set image deployment/first-app kub-first-app=academind/kub-first-app:2
+```
+
+Syntax breakdown:
+
+| Part | Meaning |
+|------|---------|
+| `deployment/first-app` | Resource type, then `/`, then the **name of the Deployment** to update. |
+| `kub-first-app` | The **current container name** to update (shown in the dashboard; here it matches the original image name). |
+| `=academind/kub-first-app:2` | The **new image** the container should use. |
+
+> **Why specify the container name and the image?** The image isn't hard-coded to the Deployment. Telling Kubernetes which container to update and which image to use keeps it flexible, so you can later switch to a different image with a different name or technology.
+
+**Step 4 — Watch the rollout:**
+
+```bash
+kubectl rollout status deployment/first-app
+```
+
+It reports when the Deployment was rolled out successfully. After a little while, reloading the app in the browser shows the updated output.
+
+**Verify in the dashboard:** open the Pod and look at **Events**. You can see the new image was pulled and a new container created from it. The Pod also shows the image currently in use.
+
+> **Important: use a new tag.** If you re-push under the same tag (e.g. `latest`) and run `kubectl set image` again, nothing visibly happens: the Deployment shows no difference and the app looks unchanged. Kubernetes only downloads a new image **if the tag is different**. There are ways around this, but versioning your images with an incrementing tag (`:1`, `:2`, `:3`, ...) is good practice for production setups anyway. With a new tag, Kubernetes detects the change, re-downloads the image, and restarts the containers based on it.
+
+**Summary of the update workflow:**
+
+```
+Change code ─▶ docker build -t <image>:<new-tag> ─▶ docker push ─▶ kubectl set image ─▶ kubectl rollout status
+```
+
+> **Key takeaway:** `kubectl set image` updates the image, and therefore the source code, of a container running in a Pod managed by a Deployment. Always change the tag to trigger Kubernetes to re-download the image.
+
 ---
 
 ### 2. Other Important Kubernetes Objects
