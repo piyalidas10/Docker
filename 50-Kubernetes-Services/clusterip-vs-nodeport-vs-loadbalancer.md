@@ -14,6 +14,18 @@ This is a problem for any client that needs to connect to a Pod. If the IP keeps
 
 **Kubernetes Services solve this.** A Service provides a **stable destination** that clients always connect to, regardless of how many times the underlying Pods are recreated. The client never needs to track Pod IP changes.
 
+```
+| Feature                  | ClusterIP                                        | NodePort                                                              | LoadBalancer                                                                                    |
+| ------------------------ | ------------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Communication            | Internal Pod-to-Pod / Service-to-Service         | External client-to-Pod via node IP and port                           | External client-to-Pod via external load balancer                                               |
+| Load balancing           | Distributes traffic across eligible backend Pods | Can distribute traffic across eligible Pods, including on other nodes | External load balancer distributes incoming traffic; Kubernetes Service routes to eligible Pods |
+| Cloud platform required? | No                                               | No                                                                    | Usually requires a cloud provider or another load-balancer implementation for external access   |
+| External access          | Not directly                                     | `NodeIP:NodePort`                                                     | External IP or hostname and Service port                                                        |
+| Typical use              | Internal APIs, databases, auth services          | Local testing and direct node access                                  | Public-facing applications and APIs                                                             |
+
+```
+Important clarification: NodePort does not inherently mean “no load balancing between nodes.” Kubernetes can route NodePort traffic to eligible Pods on other nodes, depending on the Service configuration and cluster networking.
+
 ---
 
 ## ClusterIP

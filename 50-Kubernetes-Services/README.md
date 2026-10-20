@@ -1,8 +1,4 @@
-# Kubernetes Services — ClusterIP vs NodePort vs LoadBalancer
-
-> Source: [KodeKloud Blog](https://kodekloud.com/blog/clusterip-nodeport-loadbalancer/)
-
----
+# Kubernetes Services — ClusterIP vs NodePort vs LoadBalancer vs ExternalName
 
 ## Why Kubernetes Services Exist
 
@@ -148,17 +144,65 @@ spec:
 
 ---
 
+### 4. ExternalName (DNS Alias)
+
+**ExternalName** is a special Service type that maps a Kubernetes Service name to an **external DNS name**. It does not proxy traffic or expose any ports — it simply returns a **CNAME DNS record** pointing to the external hostname.
+
+```
+Pod inside cluster
+      │
+      │  http://my-database  (Service DNS name)
+      ▼
+ExternalName Service
+      │
+      │  CNAME  →  my-database.example.com
+      ▼
+External resource (outside the cluster)
+```
+
+- **No selector, no ports, no ClusterIP** — it is purely a DNS alias
+- Pods use the Service name (`my-database`) as if it were a cluster-internal Service
+- Kubernetes DNS resolves it to the external hostname via a **CNAME record**
+- Useful for **migrating workloads** — swap the external DNS for a cluster-internal Service later without changing any Pod config
+- Works only with **DNS names**, not raw IP addresses
+
+**Example YAML:**
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-database
+spec:
+  type: ExternalName
+  externalName: my-database.prod.example.com
+  # No selector — no Pods managed
+  # No ports — no traffic proxying
+```
+
+Any Pod that calls `http://my-database` will have its DNS query resolved to `my-database.prod.example.com` by the cluster's DNS (CoreDNS).
+
+**When to use:**
+- Connecting to **external databases or APIs** (e.g. RDS, Cloud SQL) using a stable in-cluster name
+- **Abstracting third-party services** so Pods never hardcode external hostnames
+- **Migration strategy** — start with ExternalName pointing to an old external service, then switch to a real in-cluster Service when ready, with zero changes to consuming Pods
+
+> **Note:** ExternalName does **not** perform any health checking, load balancing, or TLS termination. It is purely a DNS redirect.
+
+---
+
 ## Key Differences at a Glance
 
-| Feature | ClusterIP | NodePort | LoadBalancer |
-|---------|-----------|----------|--------------|
-| **External access** | ❌ No | ✅ Yes (via node IP + port) | ✅ Yes (via cloud LB public IP) |
-| **Load balancing (Pods)** | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Load balancing (Nodes)** | N/A | ❌ No | ✅ Yes |
-| **Cloud provider required** | ❌ No | ❌ No | ✅ Yes |
-| **Port range** | Any | 30000–32767 | Any |
-| **Builds on top of** | — | ClusterIP | NodePort → ClusterIP |
-| **Typical use** | Internal services | Dev/test external access | Production external access |
+| Feature | ClusterIP | NodePort | LoadBalancer | ExternalName |
+|---------|-----------|----------|--------------|--------------|
+| **External access** | ❌ No | ✅ Yes (node IP + port) | ✅ Yes (cloud LB IP) | ✅ DNS only (CNAME) |
+| **Load balancing (Pods)** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No |
+| **Load balancing (Nodes)** | N/A | ❌ No | ✅ Yes | ❌ No |
+| **Cloud provider required** | ❌ No | ❌ No | ✅ Yes | ❌ No |
+| **Port range** | Any | 30000–32767 | Any | N/A |
+| **Builds on top of** | — | ClusterIP | NodePort → ClusterIP | — |
+| **Has selector / Pods** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No |
+| **Typical use** | Internal services | Dev/test external access | Production external access | DNS alias to external resource |
 
 ---
 
@@ -173,6 +217,9 @@ External Client  ──►  Node:Port  ──►  NodePort  ──►  ClusterIP
 
 # LoadBalancer (external, with cross-node LB)
 External Client  ──►  Cloud LB  ──►  Node  ──►  NodePort  ──►  ClusterIP  ──►  Pod
+
+# ExternalName (DNS alias only)
+Pod  ──►  ExternalName Service (CNAME)  ──►  external-hostname.example.com
 ```
 
 ---
@@ -184,6 +231,7 @@ External Client  ──►  Cloud LB  ──►  Node  ──►  NodePort  ─�
 | **ClusterIP** | You want Pods to talk to each other **inside** the cluster (e.g. auth, database, cache) |
 | **NodePort** | You need **external access** for dev/testing and don't have a cloud provider |
 | **LoadBalancer** | You need **production-grade external access** on a cloud platform with traffic distributed across nodes |
+| **ExternalName** | You want Pods to reference an **external service by a stable in-cluster DNS name** (e.g. managed DB, third-party API) |
 
 ---
 
